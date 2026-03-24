@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IZER | Digital Portfolio</title>
+    <link rel="icon" type="image/x-icon" href="Resources/logo-full.svg" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js" defer></script>
+    <script src="https://unpkg.com/@studio-freight/lenis@1.0.33/dist/lenis.min.js" defer></script>
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="loading">
+    <div class="preloader">
+      <div class="preloader-content">
+        <div class="preloader-text-wrapper">
+          <h1 class="preloader-text">IZER</h1>
+        </div>
+        <div class="preloader-bar"><div class="preloader-progress"></div></div>
+        <span class="preloader-percent">0%</span>
+      </div>
+    </div>
+
+    <div class="scroll-progress"></div>
+    <div class="cursor-follower"></div>
+
+    <div class="parallax-shapes">
+      <div class="shape shape-1"></div>
+      <div class="shape shape-2"></div>
+      <div class="shape shape-3"></div>
+    </div>
+
+    <div class="tech-grid"></div>
+    <div class="ambient-glow"></div>
+
+    <nav class="glass-navbar">
+      <a href="#hero" class="logo-container magnetic-target">
+        <img src="Resources/logo-dark.svg" alt="IZR" class="nav-logo logo-dark" />
+        <img src="Resources/logo-light.svg" alt="IZR" class="nav-logo logo-light" />
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#about" class="nav-item magnetic-target">About</a></li>
+        <li><a href="#skills" class="nav-item magnetic-target">Skills</a></li>
+        <li><a href="#experience" class="nav-item magnetic-target">Experience</a></li>
+        <li><a href="#works" class="nav-item magnetic-target">Works</a></li>
+        <li><a href="#contact" class="nav-item magnetic-target">Contact</a></li>
+      </ul>
+
+      <div class="nav-controls">
+        <button id="theme-toggle" class="theme-btn magnetic-target" aria-label="Toggle Theme">
+          <svg id="theme-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </button>
+        <div class="hamburger magnetic-target">
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="mobile-menu-overlay">
+      <div class="mobile-menu-inner">
+        <div class="mobile-nav-spacer"></div>
+        <ul class="mobile-nav-links">
+          <li><a href="#about" class="mobile-nav-item">About</a></li>
+          <li><a href="#skills" class="mobile-nav-item">Skills</a></li>
+          <li><a href="#experience" class="mobile-nav-item">Experience</a></li>
+          <li><a href="#works" class="mobile-nav-item">Works</a></li>
+          <li><a href="#contact" class="mobile-nav-item">Contact</a></li>
+        </ul>
+
+        <div class="mobile-menu-badge">
+          <span class="badge-icon">IZER</span>
+          <p>EST. 2026</p>
+        </div>
+
+        <div class="mobile-menu-footer">
+          <a href="#contact" class="mobile-contact-link mobile-nav-item">Business Enquiries</a>
+          <div class="mobile-socials">
+            <a href="#">Instagram</a>
+            <a href="#">LinkedIn</a>
+            <a href="#">GitHub</a>
+            <a href="#">YouTube</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section id="hero" class="hero-section section-container">
+      <div class="hero-visual-box glass-card scroll-reveal">
+        <div class="hero-watermark-wrapper">
+          <h1 class="hero-watermark">IZER</h1>
+        </div>
+        <img src="Resources/hero.svg" alt="Rayhan Rezi" class="hero-photo parallax-img" />
+      </div>
+
+      <div class="hero-branding scroll-reveal">
+        <h2 class="hero-name"><span id="typewriter-text"></span><span class="typing-cursor">|</span></h2>
+        <p class="hero-role reveal-text">IT Developer. Creative Lead. Problem Solver.</p>
+      </div>
+
+      <div class="scroll-indicator">
+        <div class="mouse-icon">
+          <div class="mouse-wheel"></div>
+        </div>
+        <span class="scroll-text">Scroll to explore</span>
+      </div>
+    </section>
+
+    <section id="about" class="section-container scroll-reveal">
+      <div class="section-header">
+        <h2 class="section-title kinetic-reveal">About Me.</h2>
+      </div>
+      <div class="glass-card about-combined">
+        <div class="about-text">
+          <h3 class="elegant-heading-small">Presisi & Ketahanan.</h3>
+          <p>Memadukan kepemimpinan manajerial dari pengalaman memimpin OSIS dengan presisi teknis di dunia IT. Fokus gue ada pada penciptaan solusi digital yang nggak cuma fungsional, tapi juga ngasih pengalaman visual yang elegan.</p>
+          <p>
+            Sebagai seorang <i>jack of all trades</i>, gue seneng mengeksplorasi banyak hal mulai dari ngoding, desain grafis, video editing, sampai main instrumen musik. Belakangan ini, gue juga lagi aktif lari buat ngelatih
+            konsistensi—karena ngebangun <i>endurance</i> di jalanan ternyata nggak jauh beda sama ngerjain project kompleks.
+          </p>
+        </div>
+        <div class="about-visual-wrapper">
+          <img src="Resources/profile.svg" alt="Profile 1" class="about-img active" />
+          <img src="Resources/profile2.svg" alt="Profile 2" class="about-img" />
+          <img src="Resources/profile3.jpg" alt="Profile 3" class="about-img" />
+          <img src="Resources/profile4.jpg" alt="Profile 4" class="about-img" />
+        </div>
+      </div>
+    </section>
+
+    <section id="skills" class="section-container scroll-reveal">
+      <div class="section-header">
+        <h2 class="section-title kinetic-reveal">Capabilities.</h2>
+      </div>
+      <div class="skills-grid">
+        <div class="glass-card skill-box">
+          <span class="skill-number">01</span>
+          <h3>IT Programming</h3>
+          <p>Membangun sistem dan logika digital.</p>
+        </div>
+        <div class="glass-card skill-box">
+          <span class="skill-number">02</span>
+          <h3>Graphic Design</h3>
+          <p>Menciptakan identitas visual yang tajam.</p>
+        </div>
+        <div class="glass-card skill-box">
+          <span class="skill-number">03</span>
+          <h3>Video & Photo</h3>
+          <p>Bercerita melalui komposisi lensa dan editing.</p>
+        </div>
+        <div class="glass-card skill-box">
+          <span class="skill-number">04</span>
+          <h3>Audio / Music</h3>
+          <p>Gitar, Keys, Bass. Eksplorasi harmoni.</p>
+        </div>
+        <div class="glass-card skill-box">
+          <span class="skill-number">05</span>
+          <h3>Problem Solver</h3>
+          <p>Manajemen konflik dan solusi strategis organisasi.</p>
+        </div>
+        <div class="glass-card skill-box">
+          <span class="skill-number">06</span>
+          <h3>Public Speaking</h3>
+          <p>Komunikasi asertif dan presentasi ide.</p>
+        </div>
+      </div>
+
+      <div class="skills-icons-wrapper glass-card">
+        <p class="icons-title">Tools & Technologies</p>
+        <div class="icons-flex">
+          <img src="https://img.icons8.com/color/96/javascript--v1.png" alt="JavaScript" class="tech-icon" title="JavaScript" />
+          <img src="https://img.icons8.com/color/96/python--v1.png" alt="Python" class="tech-icon" title="Python" />
+          <img src="https://img.icons8.com/color/96/adobe-premiere-pro--v1.png" alt="Premiere Pro" class="tech-icon" title="Premiere Pro" />
+          <img src="https://img.icons8.com/color/96/adobe-after-effects--v1.png" alt="After Effects" class="tech-icon" title="After Effects" />
+          <img src="https://img.icons8.com/color/96/adobe-illustrator--v1.png" alt="Illustrator" class="tech-icon" title="Illustrator" />
+          <img src="https://img.icons8.com/color/96/figma--v1.png" alt="Figma" class="tech-icon" title="Figma" />
+        </div>
+      </div>
+    </section>
+
+    <section id="experience" class="section-container scroll-reveal">
+      <div class="section-header">
+        <h2 class="section-title kinetic-reveal">Experience.</h2>
+      </div>
+      <div class="experience-list">
+        <div class="exp-row">
+          <div class="exp-left">
+            <span class="exp-date">2023 - 2024</span>
+            <h3 class="elegant-heading">Ketua OSIS</h3>
+          </div>
+          <div class="exp-right">
+            <p>Memimpin organisasi, merancang program inovatif, dan mengambil keputusan strategis dari sudut pandang helikopter untuk skala sekolah.</p>
+          </div>
+        </div>
+        <div class="exp-row">
+          <div class="exp-left">
+            <span class="exp-date">Present</span>
+            <h3 class="elegant-heading">Freelance Dev</h3>
+          </div>
+          <div class="exp-right">
+            <p>Meracik website custom, desain grafis, dan aset multimedia untuk memecahkan masalah klien lokal.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="works">
+      <div class="section-container" style="padding-bottom: 2rem">
+        <div class="section-header works-header">
+          <h2 class="section-title kinetic-reveal">Selected Works.</h2>
+          <div class="works-nav-buttons">
+            <button class="nav-arrow arrow-left magnetic-target" aria-label="Scroll Left">&#10094;</button>
+            <button class="nav-arrow arrow-right magnetic-target" aria-label="Scroll Right">&#10095;</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="works-horizontal-scroll" id="works-scroll-container">
+        <div class="glass-card elegant-work-card">
+          <div class="work-image-bg" style="background-image: url(&quot;https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=800&auto=format&fit=crop&quot;)"></div>
+          <div class="work-content">
+            <span class="work-category">Web Development</span>
+            <h3 class="elegant-heading">OSIS Revamp</h3>
+          </div>
+        </div>
+        <div class="glass-card elegant-work-card">
+          <div class="work-image-bg" style="background-image: url(&quot;https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800&auto=format&fit=crop&quot;)"></div>
+          <div class="work-content">
+            <span class="work-category">Multimedia</span>
+            <h3 class="elegant-heading">Event Aftermovie</h3>
+          </div>
+        </div>
+        <div class="glass-card elegant-work-card">
+          <div class="work-image-bg" style="background-image: url(&quot;https://images.unsplash.com/photo-1600132806370-bf17e65e942f?q=80&w=800&auto=format&fit=crop&quot;)"></div>
+          <div class="work-content">
+            <span class="work-category">Design</span>
+            <h3 class="elegant-heading">Brand Identity</h3>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer id="contact" class="lando-footer">
+      <div class="footer-content">
+        <h2 class="footer-heading kinetic-reveal">Let's collaborate.</h2>
+        <p class="footer-sub">Terbuka untuk ngobrolin project IT, kolaborasi multimedia, atau sekadar lari bareng pagi-pagi.</p>
+        <div class="footer-action">
+          <a href="mailto:email-lo-disini@gmail.com" class="btn-primary magnetic-target">Get in touch</a>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div class="footer-links">
+          <a href="#" class="magnetic-target">Instagram</a>
+          <a href="#" class="magnetic-target">LinkedIn</a>
+          <a href="#" class="magnetic-target">GitHub</a>
+        </div>
+        <p class="copyright">&copy; 2026 IZER. DESIGNED WITH PRECISION.</p>
+      </div>
+    </footer>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>
