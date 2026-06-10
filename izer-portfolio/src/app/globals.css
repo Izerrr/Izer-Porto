@@ -20,7 +20,7 @@ body.light-mode {
   --bg-surface: #ffffff;
   --text-main: #000000;
   --text-dim: #454545;
-  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-bg: rgba(255, 255, 255, 0.445);
   --glass-border: rgba(0, 0, 0, 0.05);
   --accent-glow: rgba(0, 100, 255, 0.05);
   --grid-color: rgba(0, 0, 0, 0.04);
@@ -75,30 +75,43 @@ button,
 }
 
 /* --- BACKGROUND --- */
+/* 1. TECH GRID: Bentuk Ellipse, nyisa ruang di kiri-kanan & bawah */
 .tech-grid {
-  position: absolute; /* Bukan FIXED, biar cuma nempel di Hero */
+  position: absolute;
   top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  left: calc(50% - 50vw);
+  width: 100vw;
+  height: 100vh;
   background-image: linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
   background-size: 60px 60px;
   pointer-events: none;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
-
   z-index: 0;
+
+  /* ellipse 60% 60%: ngebentuk lonjong yang nggak mentok ujung layar
+    at 50% 30%: posisinya di tengah (50%) agak ke atas (30%)
+    black 10% -> transparent 80%: gradasinya halus banget sebelum ilang
+  */
+  mask-image: radial-gradient(ellipse 200% 90% at 50% 30%, black 10%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 30%, black 10%, transparent 80%);
 }
-.ambient-glow {
-  position: fixed;
-  top: -20%;
-  left: -10%;
-  width: 70vw;
-  height: 70vh;
-  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
-  filter: blur(120px);
+
+/* 2. HERO VISUAL BOX: Glass Card yang lebih pekat (nggak nembus grid) */
+.tech-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh; /* Sebatas hero section aja */
+  background-image: linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 60px 60px;
   pointer-events: none;
-  z-index: 2;
+  z-index: 0;
+
+  /* BENTUK ELLIPSE AMAN: 
+     45vw & 40vh = radiusnya. Artinya dia gak bakal nyentuh ujung kiri-kanan & bawah.
+     Hitam pekat di tengah, makin ke luar makin pudar sampai hilang. */
+  mask-image: radial-gradient(45vw 40vh at 50% 45%, black 0%, transparent 100%);
+  -webkit-mask-image: radial-gradient(45vw 40vh at 50% 45%, black 0%, transparent 100%);
 }
 section,
 nav {
@@ -195,8 +208,7 @@ nav {
   width: calc(100% - 3rem);
   max-width: 700px;
   background: var(--glass-bg);
-  backdrop-filter: blur(25px) saturate(200%);
-  -webkit-backdrop-filter: blur(25px) saturate(200%);
+  backdrop-filter: blur(25px) saturate(100%);
   border: 1px solid var(--glass-border);
   border-radius: 50px;
   padding: 0.7rem 2rem;
@@ -315,10 +327,20 @@ body.light-mode .logo-light {
   justify-content: center;
   align-items: flex-end;
   margin-bottom: 3rem;
-  background: radial-gradient(circle at bottom, var(--hero-floor));
+
+  /* 1. Base warna gelap lu biar nutupin grid di belakangnya */
+  background-color: var(--glass-bg);
+
+  /* 2. Ditimpa tint putih 2% lu biar warnanya identik 100% sama kemauan lu */
+  background-image: linear-gradient(rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02));
+
+  /* 3. Efek blur dibenerin pakai px */
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+
+  border: 1px solid var(--glass-border);
+  border-radius: 28px;
   box-shadow: var(--card-shadow);
-  z-index: 2;
-  backdrop-filter: var(--glass-blur);
 }
 .hero-watermark-wrapper {
   position: absolute;
@@ -443,6 +465,7 @@ body.light-mode .hero-photo {
 /* 3. ABOUT ME */
 .about-combined {
   display: flex;
+  width: 100%;
   overflow: hidden;
 }
 .about-text {
@@ -458,7 +481,7 @@ body.light-mode .hero-photo {
   font-weight: 400;
 }
 .about-visual-wrapper {
-  flex: 0.8;
+  flex: 1;
   background: var(--bg-surface);
   overflow: hidden;
   position: relative;
@@ -478,7 +501,7 @@ body.light-mode .hero-photo {
 }
 .about-img.active {
   opacity: 1;
-  z-index: 1;
+  z-index: 2;
   position: relative;
 }
 .about-combined:hover .about-img.active {
@@ -808,20 +831,18 @@ body.loading {
 
 .cursor-follower {
   position: fixed;
+  top: 0;
+  left: 0;
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  background: var(--text-main);
-  opacity: 0.4;
+  background: var(--text-main); /* Warna putih/terang */
   pointer-events: none;
-  z-index: 99999;
-  transition:
-    width 0.3s,
-    height 0.3s,
-    background 0.3s,
-    border 0.3s,
-    opacity 0.3s;
+  z-index: 999999;
+
+  /* 1. INI YANG BIKIN INVERT WARNA (Hitam di atas putih) */
   mix-blend-mode: difference;
+  /* Jangan taruh transition width/height/transform di sini biar quickSetter GSAP nggak nge-lag */
 }
 body.light-mode .cursor-follower {
   mix-blend-mode: normal;
@@ -891,6 +912,26 @@ body.light-mode .cursor-follower.active {
     position: relative;
     z-index: 10001;
   }
+
+  .nav-item {
+    position: relative;
+  }
+  .nav-item::after {
+    content: "";
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #fff;
+    transform: translateX(-50%) scale(0);
+    transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .nav-item.active::after {
+    transform: translateX(-50%) scale(1);
+  }
+
   .nav-links {
     display: none !important;
   } /* Sembunyiin menu desktop */
@@ -1028,6 +1069,9 @@ body.light-mode .cursor-follower.active {
     flex-direction: column;
   }
   .about-visual-wrapper {
+    position: relative; /* Wajib: Biar gambar anak gak keluar jalur */
+    width: 100%; /* Sesuaikan dengan layout lo */
+    overflow: hidden; /* Potong bagian yang meluber */
     height: 350px;
   }
   .about-text {

@@ -26,6 +26,7 @@ export default function Works() {
       .then((data) => {
         setWorks(data);
         setLoading(false);
+        cache: "no-store";
       });
   }, []);
 
