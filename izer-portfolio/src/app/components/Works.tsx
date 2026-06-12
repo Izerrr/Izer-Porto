@@ -21,7 +21,7 @@ export default function Works() {
   const sectionRef = useRef(null);
 
   useEffect(() => {
-    fetch("http://localhost/izer-api/works.php")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/works.php`)
       .then((res) => res.json())
       .then((data) => {
         setWorks(data);

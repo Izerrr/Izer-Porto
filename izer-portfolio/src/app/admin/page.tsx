@@ -78,7 +78,7 @@ export default function AdminPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost/izer-api/login.php", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -110,7 +110,7 @@ export default function AdminPage() {
 
     setDataList([]);
     try {
-      const res = await fetch(`http://localhost/izer-api/get_data.php?category=${selectedCategory}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=${selectedCategory}`);
       const responseText = await res.text();
       try {
         const data = JSON.parse(responseText);
@@ -137,7 +137,7 @@ export default function AdminPage() {
     const endpoint = form.id ? "edit_data.php" : "add_data.php";
 
     try {
-      const res = await fetch(`http://localhost/izer-api/${endpoint}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/izer-api/${endpoint}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -167,7 +167,7 @@ export default function AdminPage() {
 
     if (confirm(`Yakin mau hapus data?`)) {
       try {
-        const res = await fetch("http://localhost/izer-api/delete_data.php", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/izer-api/delete_data.php`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

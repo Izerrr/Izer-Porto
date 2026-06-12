@@ -15,14 +15,14 @@ export default function Experience() {
 
   // 1. FETCH DATA PARAREL (Careers & Education)
   useEffect(() => {
-    const fetchExp = fetch("http://localhost/izer-api/get_data.php?category=experience")
+    const fetchExp = fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=experience`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setExperienceData(data);
       })
       .catch((err) => console.error("Gagal ambil data experience:", err));
 
-    const fetchEdu = fetch("http://localhost/izer-api/get_data.php?category=education")
+    const fetchEdu = fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=education`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setEducationData(data);
@@ -76,7 +76,7 @@ export default function Experience() {
               background: "none",
               border: "none",
               paddingBottom: "0.5rem",
-              cursor: "pointer",
+              cursor: "hidden",
               fontSize: "1rem",
               fontWeight: "600",
               color: "inherit", // Ikut warna teks global bawaan tema lo
@@ -96,7 +96,7 @@ export default function Experience() {
               background: "none",
               border: "none",
               paddingBottom: "0.5rem",
-              cursor: "pointer",
+              cursor: "hidden",
               fontSize: "1rem",
               fontWeight: "600",
               color: "inherit",

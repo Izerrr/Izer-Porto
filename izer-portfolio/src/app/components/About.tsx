@@ -24,7 +24,7 @@ export default function About() {
     setIsMounted(true);
 
     // FOTO: 100% Tetap pakai file lama lo (about.php) biar placeholder lo masuk sempurna
-    fetch("http://localhost/izer-api/about.php")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/about.php`)
       .then((res) => res.json())
       .then((data) => {
         setImages(data);
@@ -35,7 +35,7 @@ export default function About() {
       .catch((err) => console.error("Gagal ambil foto About:", err));
 
     // TEKS: Ambil dari 1 slot row di database
-    fetch("http://localhost/izer-api/get_data.php?category=about")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=about`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data) && data[0]?.description) {

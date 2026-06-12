@@ -12,7 +12,7 @@ export default function Skills() {
 
   useEffect(() => {
     // 1. Fetch Data Capabilities Text
-    const fetchCapabilities = fetch("http://localhost/izer-api/get_data.php?category=skills")
+    const fetchCapabilities = fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=skills`)
       .then((res) => res.json())
       .then((data) => {
         setCapabilities(Array.isArray(data) ? data : []);
@@ -20,7 +20,7 @@ export default function Skills() {
       .catch((err) => console.error("Gagal ambil capabilities:", err));
 
     // 2. Fetch Data Tech Icons Logo
-    const fetchIcons = fetch("http://localhost/izer-api/get_data.php?category=tech_icons")
+    const fetchIcons = fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=tech_icons`)
       .then((res) => res.json())
       .then((data) => {
         setTechIcons(Array.isArray(data) ? data : []);
