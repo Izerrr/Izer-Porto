@@ -12,7 +12,7 @@
   --card-shadow: 0 15px 40px -10px rgba(0, 0, 0, 0.1);
   --hero-floor: rgba(10, 17, 32, 1);
   --cursor-color: rgba(255, 255, 255, 0.5);
-  --nav-mobile-bg: rgba(5, 10, 20, 0.95); /* Elegan dark glass */
+  --nav-mobile-bg: rgba(5, 10, 20, 0.95);
 }
 
 body.light-mode {
@@ -37,7 +37,6 @@ body.light-mode {
   box-sizing: border-box;
 }
 
-/* SMART TEXT SELECTION */
 ::selection {
   background-color: var(--text-main);
   color: var(--bg-surface);
@@ -45,7 +44,6 @@ body.light-mode {
 
 html,
 body {
-  /* Tetep pake warna midnight lo */
   background-color: var(--bg-midnight);
   color: var(--text-main);
   font-family:
@@ -61,8 +59,6 @@ body {
     color 0.5s ease;
   cursor: none !important;
   scroll-behavior: initial !important;
-
-  /* KUNCI: Bikin body jadi stacking context biar z-index negatif gak tenggelam */
   position: relative;
   min-height: 100vh;
 }
@@ -74,56 +70,33 @@ button,
   cursor: none;
 }
 
-/* --- BACKGROUND --- */
-/* 1. TECH GRID: Bentuk Ellipse, nyisa ruang di kiri-kanan & bawah */
-.tech-grid {
-  position: absolute;
-  top: 0;
-  left: calc(50% - 50vw);
-  width: 100vw;
-  height: 100vh;
-  background-image: linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
-  background-size: 60px 60px;
-  pointer-events: none;
-  z-index: 0;
-
-  /* ellipse 60% 60%: ngebentuk lonjong yang nggak mentok ujung layar
-    at 50% 30%: posisinya di tengah (50%) agak ke atas (30%)
-    black 10% -> transparent 80%: gradasinya halus banget sebelum ilang
-  */
-  mask-image: radial-gradient(ellipse 200% 90% at 50% 30%, black 10%, transparent 80%);
-  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 30%, black 10%, transparent 80%);
-}
-
-/* 2. HERO VISUAL BOX: Glass Card yang lebih pekat (nggak nembus grid) */
+/* Background Grids */
 .tech-grid {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  height: 100vh; /* Sebatas hero section aja */
+  height: 100vh;
   background-image: linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
   background-size: 60px 60px;
   pointer-events: none;
   z-index: 0;
-
-  /* BENTUK ELLIPSE AMAN: 
-     45vw & 40vh = radiusnya. Artinya dia gak bakal nyentuh ujung kiri-kanan & bawah.
-     Hitam pekat di tengah, makin ke luar makin pudar sampai hilang. */
   mask-image: radial-gradient(45vw 40vh at 50% 45%, black 0%, transparent 100%);
   -webkit-mask-image: radial-gradient(45vw 40vh at 50% 45%, black 0%, transparent 100%);
 }
+
 section,
 nav {
   box-shadow: none !important;
 }
+
 .glass-navbar,
 .section-container {
   position: relative;
   z-index: 10;
 }
 
-/* --- THE GLASS CARD --- */
+/* Glass Card Global */
 .glass-card {
   position: relative;
   z-index: 10;
@@ -138,6 +111,7 @@ nav {
     border-color 0.4s ease,
     box-shadow 0.4s ease;
 }
+
 .glass-card:hover {
   border-color: rgba(128, 128, 128, 0.2);
   box-shadow:
@@ -145,11 +119,12 @@ nav {
     0 0 20px -5px var(--accent-glow);
   transform: translateY(-4px);
 }
+
 .elegant-work-card:hover {
   transform: none;
 }
 
-/* TYPOGRAPHY */
+/* Typography */
 .elegant-heading {
   font-weight: 600;
   letter-spacing: -0.04em;
@@ -157,12 +132,14 @@ nav {
   color: var(--text-main);
   word-break: break-word;
 }
+
 .elegant-heading-small {
   font-weight: 500;
   font-size: 1.5rem;
   margin-bottom: 1rem;
   letter-spacing: -0.02em;
 }
+
 .section-title {
   font-size: clamp(2rem, 5vw, 2.5rem);
   font-weight: 600;
@@ -170,9 +147,11 @@ nav {
   letter-spacing: -0.03em;
   word-break: break-word;
 }
+
 .text-center {
   text-align: center;
 }
+
 .btn-primary {
   display: inline-block;
   background: var(--text-main);
@@ -184,6 +163,7 @@ nav {
   text-decoration: none;
   transition: all 0.4s ease;
 }
+
 .btn-primary:hover {
   opacity: 0.85;
   transform: scale(1.03);
@@ -194,12 +174,13 @@ nav {
   margin: 0 auto;
   padding: 7rem 1.5rem;
 }
+
 .section-header {
   margin-bottom: 3rem;
   text-align: center;
 }
 
-/* 1. NAVBAR DESKTOP */
+/* Desktop Navbar */
 .glass-navbar {
   position: fixed;
   top: 1.5rem;
@@ -217,12 +198,14 @@ nav {
   align-items: center;
   z-index: 9999;
 }
+
 .nav-logo {
   height: 30px;
   width: auto;
   min-width: 50px;
   object-fit: contain;
 }
+
 .logo-light {
   display: none;
 }
@@ -241,6 +224,7 @@ body.light-mode .logo-light {
   gap: 2rem;
   list-style: none;
 }
+
 .nav-links a {
   position: relative;
   color: var(--text-dim);
@@ -249,6 +233,7 @@ body.light-mode .logo-light {
   font-weight: 500;
   transition: color 0.3s;
 }
+
 .nav-links a:hover {
   color: var(--text-main);
 }
@@ -256,6 +241,7 @@ body.light-mode .logo-light {
   color: var(--text-main);
   font-weight: 600;
 }
+
 .nav-links a::after {
   content: "";
   position: absolute;
@@ -268,15 +254,16 @@ body.light-mode .logo-light {
   background-color: var(--text-main);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .nav-links a.active::after {
   transform: translateX(-50%) scale(1);
 }
-
 .nav-controls {
   display: flex;
   align-items: center;
   gap: 1.5rem;
 }
+
 .theme-btn {
   background: none;
   border: none;
@@ -286,6 +273,7 @@ body.light-mode .logo-light {
   justify-content: center;
   transition: transform 0.4s ease;
 }
+
 .theme-btn:hover {
   transform: rotate(45deg);
 }
@@ -295,13 +283,14 @@ body.light-mode .logo-light {
   gap: 6px;
   width: 22px;
 }
+
 .hamburger span {
   width: 100%;
   height: 1.5px;
   background: var(--text-main);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
-/* Animasi 'X' yang sempurna */
+
 .hamburger.active span:nth-child(1) {
   transform: translateY(3.75px) rotate(45deg);
 }
@@ -309,7 +298,7 @@ body.light-mode .logo-light {
   transform: translateY(-3.75px) rotate(-45deg);
 }
 
-/* 2. HERO SECTION */
+/* Hero Section */
 .hero-section {
   display: flex;
   flex-direction: column;
@@ -317,6 +306,7 @@ body.light-mode .logo-light {
   padding-top: 8rem;
   position: relative;
 }
+
 .hero-visual-box {
   width: 100%;
   height: 60vh;
@@ -327,21 +317,15 @@ body.light-mode .logo-light {
   justify-content: center;
   align-items: flex-end;
   margin-bottom: 3rem;
-
-  /* 1. Base warna gelap lu biar nutupin grid di belakangnya */
   background-color: var(--glass-bg);
-
-  /* 2. Ditimpa tint putih 2% lu biar warnanya identik 100% sama kemauan lu */
   background-image: linear-gradient(rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02));
-
-  /* 3. Efek blur dibenerin pakai px */
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
-
   border: 1px solid var(--glass-border);
   border-radius: 28px;
   box-shadow: var(--card-shadow);
 }
+
 .hero-watermark-wrapper {
   position: absolute;
   top: 50%;
@@ -352,6 +336,7 @@ body.light-mode .logo-light {
   width: 100%;
   text-align: center;
 }
+
 .hero-watermark {
   font-size: clamp(3.5rem, 15vw, 15rem);
   font-weight: 800;
@@ -362,6 +347,7 @@ body.light-mode .logo-light {
   line-height: 1;
   word-break: break-word;
 }
+
 .hero-photo {
   height: 95%;
   width: 100%;
@@ -371,10 +357,10 @@ body.light-mode .logo-light {
   z-index: 1;
   filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.1));
 }
+
 body.light-mode .hero-photo {
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.05));
 }
-
 .hero-branding {
   text-align: center;
   max-width: 600px;
@@ -394,6 +380,7 @@ body.light-mode .hero-photo {
   animation: blink 0.8s infinite;
   color: var(--text-dim);
 }
+
 @keyframes blink {
   0%,
   100% {
@@ -408,7 +395,6 @@ body.light-mode .hero-photo {
   font-size: 1.1rem;
   font-weight: 400;
 }
-
 .scroll-indicator {
   position: absolute;
   bottom: 1rem;
@@ -442,6 +428,7 @@ body.light-mode .hero-photo {
   text-transform: uppercase;
   letter-spacing: 0.2em;
 }
+
 @keyframes floatBounce {
   0%,
   100% {
@@ -462,12 +449,13 @@ body.light-mode .hero-photo {
   }
 }
 
-/* 3. ABOUT ME */
+/* About Me Section - Desktop Standard */
 .about-combined {
   display: flex;
   width: 100%;
   overflow: hidden;
 }
+
 .about-text {
   flex: 1;
   padding: 4rem;
@@ -475,17 +463,20 @@ body.light-mode .hero-photo {
   flex-direction: column;
   justify-content: center;
 }
+
 .about-text p {
   color: var(--text-dim);
   margin-bottom: 1.5rem;
   font-weight: 400;
 }
+
 .about-visual-wrapper {
   flex: 1;
   background: var(--bg-surface);
   overflow: hidden;
   position: relative;
 }
+
 .about-img {
   position: absolute;
   top: 0;
@@ -498,22 +489,25 @@ body.light-mode .hero-photo {
   transition:
     opacity 1.5s ease-in-out,
     transform 0.8s ease;
+  z-index: 1;
 }
+
 .about-img.active {
   opacity: 1;
   z-index: 2;
-  position: relative;
 }
+
 .about-combined:hover .about-img.active {
   transform: scale(1.05);
 }
 
-/* 4. SKILLS & APP ICONS */
+/* Skills Grid */
 .skills-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
 }
+
 .skill-box {
   padding: 4rem 2rem 3rem 2rem;
   position: relative;
@@ -523,6 +517,7 @@ body.light-mode .hero-photo {
   justify-content: center;
   text-align: center;
 }
+
 .skill-number {
   position: absolute;
   top: 1.5rem;
@@ -535,6 +530,7 @@ body.light-mode .hero-photo {
   color: var(--text-dim);
   opacity: 0.6;
 }
+
 .skill-box h3 {
   font-size: 1.1rem;
   margin-bottom: 0.5rem;
@@ -565,6 +561,7 @@ body.light-mode .hero-photo {
   justify-content: center;
   gap: 2rem;
 }
+
 .tech-icon {
   width: 50px;
   height: 50px;
@@ -576,7 +573,7 @@ body.light-mode .hero-photo {
   filter: grayscale(0%) opacity(1);
 }
 
-/* 5. EXPERIENCE */
+/* Experience Section */
 .experience-list {
   border-top: 1px solid var(--glass-border);
 }
@@ -615,52 +612,50 @@ body.light-mode .hero-photo {
   font-weight: 400;
 }
 
-/* 6. WORKS */
+/* Works Section Desktop Setup (Mengunci Total Kalkulasi GSAP) */
 #works {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   overflow: hidden;
+  position: relative;
+  padding: 4vh 0 0 0 !important;
 }
+
 .works-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
 }
-.works-nav-buttons {
-  display: flex;
-  gap: 1rem;
-}
-.nav-arrow {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  color: var(--text-main);
-  width: 45px;
-  height: 45px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  transition: all 0.3s ease;
-}
-.nav-arrow:hover {
-  background: var(--glass-border);
-  transform: scale(1.1);
-}
+
+/* Track Desktop: Mutlak Tanpa Properti Scroll Alami Mobile */
 .works-horizontal-scroll {
   display: flex;
-  gap: 2.5rem;
-  padding: 0 5vw;
+  gap: 4rem;
   width: max-content;
+  padding: 0 8vw;
+  align-items: center;
+  height: 75vh;
 }
+
+.work-link-wrapper {
+  flex-shrink: 0 !important;
+  display: inline-block;
+  text-decoration: none;
+}
+
+/* Ukuran Kartu Raksasa Versi Lawas di Desktop */
 .elegant-work-card {
-  width: 85vw;
-  max-width: 900px;
-  height: 60vh;
-  min-height: 450px;
+  width: 850px;
+  height: 65vh;
   position: relative;
   overflow: hidden;
   box-shadow: var(--card-shadow);
-  border-radius: 28px;
+  border-radius: 32px;
 }
+
 .work-image-bg {
   position: absolute;
   top: 0;
@@ -671,17 +666,20 @@ body.light-mode .hero-photo {
   background-position: center;
   transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .elegant-work-card:hover .work-image-bg {
   transform: scale(1.05);
 }
+
 .work-content {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
   padding: 3rem;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
 }
+
 .work-category {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.8);
@@ -690,13 +688,14 @@ body.light-mode .hero-photo {
   display: block;
   margin-bottom: 0.5rem;
 }
+
 .work-content .elegant-heading {
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: 2.5rem;
   color: #ffffff !important;
   word-break: break-word;
 }
 
-/* 7. LANDO FOOTER */
+/* Lando Footer */
 .lando-footer {
   background: var(--bg-surface);
   border-radius: 60px 60px 0 0;
@@ -710,11 +709,13 @@ body.light-mode .hero-photo {
   align-items: center;
   box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.1);
 }
+
 .footer-content {
   max-width: 1000px;
   width: 100%;
   text-align: center;
 }
+
 .footer-heading {
   font-size: clamp(2.5rem, 8vw, 7rem);
   font-weight: 700;
@@ -725,6 +726,7 @@ body.light-mode .hero-photo {
   word-break: break-word;
   hyphens: auto;
 }
+
 .footer-sub {
   color: var(--text-dim);
   max-width: 500px;
@@ -734,6 +736,7 @@ body.light-mode .hero-photo {
 .footer-action {
   margin-bottom: 6rem;
 }
+
 .footer-bottom {
   width: 100%;
   max-width: 1200px;
@@ -743,6 +746,7 @@ body.light-mode .hero-photo {
   justify-content: space-between;
   align-items: center;
 }
+
 .footer-links {
   display: flex;
   gap: 2rem;
@@ -762,7 +766,7 @@ body.light-mode .hero-photo {
   font-size: 0.85rem;
 }
 
-/* ================= PRELOADER ELEGANT & CURSOR, SHAPES, REVEAL ================= */
+/* Preloader, Custom Cursor and Extras */
 .preloader {
   position: fixed;
   top: 0;
@@ -775,6 +779,7 @@ body.light-mode .hero-photo {
   justify-content: center;
   align-items: center;
 }
+
 body.loading {
   overflow: hidden;
 }
@@ -782,7 +787,7 @@ body.loading {
   text-align: center;
 }
 .preloader-text-wrapper {
-  overflow: hidden; /* Wajib biar efek reveal jalan */
+  overflow: hidden;
   height: clamp(4rem, 15vw, 15rem);
   display: flex;
   align-items: center;
@@ -793,8 +798,6 @@ body.loading {
   color: var(--text-main);
   line-height: 1;
   display: block;
-  transform: translateY(100%);
-  /* Jangan pake transform: translateY(100%) di sini, biar GSAP yang atur */
 }
 .preloader-bar {
   width: 300px;
@@ -817,6 +820,7 @@ body.loading {
   color: var(--text-dim);
   font-weight: 500;
 }
+
 .scroll-progress {
   position: fixed;
   top: 0;
@@ -836,14 +840,12 @@ body.loading {
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  background: var(--text-main); /* Warna putih/terang */
+  background: var(--text-main);
   pointer-events: none;
   z-index: 999999;
-
-  /* 1. INI YANG BIKIN INVERT WARNA (Hitam di atas putih) */
   mix-blend-mode: difference;
-  /* Jangan taruh transition width/height/transform di sini biar quickSetter GSAP nggak nge-lag */
 }
+
 body.light-mode .cursor-follower {
   mix-blend-mode: normal;
   background: var(--cursor-color);
@@ -895,17 +897,18 @@ body.light-mode .cursor-follower.active {
   top: 80%;
   right: 20%;
 }
-
 .kinetic-reveal span {
   display: inline-block;
   will-change: transform, opacity, filter;
 }
 
-/* RESPONSIVE MOBILE - ELEGANT OVERLAY MENU */
 .mobile-menu-overlay {
   display: none;
-} /* Hidden on Desktop */
+}
 
+/* ==========================================================================
+   EXCLUSIVE RESPONSIVE MOBILE OVERRIDES (STERIL & TERKUNCI)
+   ========================================================================== */
 @media (max-width: 768px) {
   .hamburger {
     display: flex;
@@ -931,12 +934,89 @@ body.light-mode .cursor-follower.active {
   .nav-item.active::after {
     transform: translateX(-50%) scale(1);
   }
-
   .nav-links {
     display: none !important;
-  } /* Sembunyiin menu desktop */
+  }
 
-  /* MENU OVERLAY STYLE MOCKUP */
+  /* OVERRIDE TOTAL SECTION WORKS KHUSUS MOBILE */
+  #works {
+    height: auto !important;
+    min-height: auto !important;
+    padding: 4rem 0 !important;
+    display: block !important;
+  }
+
+  /* Posisikan Aturan Scroll Alami Hanya Aktif di Sini */
+  .works-horizontal-scroll {
+    width: auto !important;
+    height: auto !important;
+    display: flex !important;
+    gap: 4vw !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    touch-action: pan-x !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 0 1.5rem !important;
+  }
+
+  /* Kunci Dimensi Kartu Mobile Sesuai Patokan UX Tanpa Loncat Skala */
+  .elegant-work-card {
+    width: 85vw !important;
+    height: 280px !important;
+    min-height: auto !important;
+    border-radius: 24px !important;
+  }
+
+  .work-content {
+    padding: 1.5rem !important;
+  }
+
+  .work-content .elegant-heading {
+    font-size: 1.35rem !important;
+    line-height: 1.2;
+  }
+
+  .work-category {
+    font-size: 0.7rem !important;
+    margin-bottom: 0.25rem;
+  }
+
+  /* SECTION ABOUT KHUSUS MOBILE (Foto di Bawah Teks, Anti-Collapse) */
+  .about-combined {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .about-text {
+    width: 100% !important;
+    padding: 2.5rem 2rem 1rem 2rem !important;
+    flex: none !important;
+  }
+
+  .about-visual-wrapper {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    height: 340px !important;
+    flex: none !important;
+    overflow: hidden !important;
+    border-radius: 0 0 28px 28px;
+    background: var(--bg-surface);
+  }
+
+  .about-img {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+  }
+
+  /* Mobile Menu Overlay Config */
   .mobile-menu-overlay {
     display: flex;
     position: fixed;
@@ -946,17 +1026,17 @@ body.light-mode .cursor-follower.active {
     height: 100vh;
     background: var(--nav-mobile-bg);
     backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px); /* Heavy Glassmorphism */
-    z-index: 9998; /* Di bawah navbar glass */
+    -webkit-backdrop-filter: blur(40px);
+    z-index: 9998;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
+
   .mobile-menu-overlay.active {
     opacity: 1;
     pointer-events: all;
   }
-
   .mobile-menu-inner {
     width: 100%;
     height: 100%;
@@ -968,8 +1048,7 @@ body.light-mode .cursor-follower.active {
   }
   .mobile-nav-spacer {
     flex: 0.5;
-  } /* Buat center vertikal yang balance */
-
+  }
   .mobile-nav-links {
     list-style: none;
     text-align: center;
@@ -987,17 +1066,14 @@ body.light-mode .cursor-follower.active {
     text-decoration: none;
     position: relative;
     display: inline-block;
-    transition: all 0.4s ease; /* Tambahin transisi biar glow-nya smooth */
+    transition: all 0.4s ease;
   }
-
-  /* Efek Glow untuk menu aktif, garis (strikethrough) dihapus */
   .mobile-nav-links a.active {
     color: var(--text-main);
     text-shadow:
       0 0 20px rgba(255, 255, 255, 0.4),
       0 0 40px var(--accent-glow);
   }
-
   .mobile-menu-badge {
     margin-top: 2rem;
     display: flex;
@@ -1017,7 +1093,6 @@ body.light-mode .cursor-follower.active {
     font-weight: 600;
     margin: 0;
   }
-
   .mobile-menu-footer {
     width: 100%;
     text-align: center;
@@ -1049,7 +1124,6 @@ body.light-mode .cursor-follower.active {
     transition: color 0.3s;
   }
 
-  /* Penyesuaian lain buat HP */
   .hero-section {
     padding-top: 6.5rem;
   }
@@ -1065,34 +1139,6 @@ body.light-mode .cursor-follower.active {
     height: 90%;
   }
 
-  .about-combined {
-    flex-direction: column;
-  }
-  .about-visual-wrapper {
-    position: relative; /* Wajib: Biar gambar anak gak keluar jalur */
-    width: 100%; /* Sesuaikan dengan layout lo */
-    overflow: hidden; /* Potong bagian yang meluber */
-    height: 350px;
-  }
-  .about-text {
-    padding: 2.5rem;
-  }
-  .exp-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-  .exp-right {
-    text-align: left;
-  }
-  .works-horizontal-scroll {
-    padding: 0 1.5rem;
-  }
-  .elegant-work-card {
-    width: 90vw;
-    height: 400px;
-    min-height: 300px;
-  }
   .lando-footer {
     border-radius: 40px 40px 0 0;
     padding: 5rem 1.5rem 2rem 1.5rem;

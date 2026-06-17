@@ -64,7 +64,6 @@ export default function Skills() {
           {loading ? (
             <p style={{ opacity: 0.4, fontSize: "0.8rem" }}>Loading assets...</p>
           ) : techIcons.length > 0 ? (
-            // Map logo-logo teknologi dinamis dari database tech_icons lo, Zi!
             techIcons.map((icon, idx) => <img key={icon.id || idx} src={icon.image_url} alt={icon.title || "Tech Icon"} className="tech-icon" />)
           ) : (
             <p style={{ opacity: 0.4, fontSize: "0.8rem" }}>Belum ada icon di gudang admin.</p>

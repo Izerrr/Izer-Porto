@@ -73,7 +73,7 @@ export default function Navbar() {
       },
     );
 
-    // 2. Logic Theme & Hero Floor (Tetap sama)
+    // 2. Logic Theme & Hero Floor
     if (newTheme) {
       document.body.classList.add("light-mode");
       gsap.to(":root", { "--hero-floor": "rgba(255,255,255,0.8)", duration: 0.5 });

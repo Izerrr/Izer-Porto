@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -10,74 +11,237 @@ interface Project {
   title: string;
   category: string;
   image_url: string;
-  project_url: string; // Link External
-  video_url: string; // Link Video
+  project_url: string;
+  video_url: string;
+  auto_thumbnail?: string;
 }
 
 export default function Works() {
   const [works, setWorks] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const scrollRef = useRef(null);
-  const sectionRef = useRef(null);
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const [mounted, setMounted] = useState(false);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const spacerRef = useRef<HTMLDivElement>(null);
+
+  /* Fetch Data and Process Thumbnails */
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/works.php`)
+    setMounted(true);
+
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/works.php`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        setWorks(data);
+        if (Array.isArray(data)) {
+          const processedData = data.map((item: Project) => {
+            let thumb = item.image_url;
+
+            if (item.video_url && (item.video_url.includes("youtube.com") || item.video_url.includes("youtu.be"))) {
+              const match = item.video_url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
+              if (match && match[2].length === 11) {
+                thumb = `https://img.youtube.com/vi/${match[2]}/maxresdefault.jpg`;
+              }
+            }
+
+            if (!thumb) {
+              thumb = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe";
+            }
+
+            return { ...item, auto_thumbnail: thumb };
+          });
+
+          setWorks(processedData);
+        }
         setLoading(false);
-        cache: "no-store";
-      });
+      })
+      .catch((err) => console.error("Gagal load API:", err));
   }, []);
 
+  /* Advanced GSAP Responsive Multi-Device Handling */
+  /* Advanced GSAP Responsive Multi-Device Handling */
+  /* Advanced GSAP Responsive Multi-Device Handling */
   useEffect(() => {
-    if (loading || works.length === 0) return;
-    let ctx = gsap.context(() => {
-      gsap.to(scrollRef.current, {
-        x: () => -((scrollRef.current as any).scrollWidth - window.innerWidth + 80),
+    if (loading || works.length === 0 || !scrollRef.current || !sectionRef.current) return;
+
+    const mm = gsap.matchMedia();
+
+    mm.add("(min-width: 769px)", () => {
+      const scrollContainer = scrollRef.current as HTMLElement;
+
+      gsap.to(scrollContainer, {
+        /* Kalkulasi murni: Total panjang track dikurangi lebar layar monitor */
+        x: () => -(scrollContainer.scrollWidth - window.innerWidth),
         ease: "none",
         scrollTrigger: {
           trigger: sectionRef.current,
-          start: "center center",
-          end: () => "+=" + (scrollRef.current as any).scrollWidth,
+          start: "top top",
+          end: () => "+=" + scrollContainer.scrollWidth,
           pin: true,
           scrub: 1,
           invalidateOnRefresh: true,
         },
       });
-    }, sectionRef);
-    return () => ctx.revert();
+    });
+
+    return () => {
+      mm.revert();
+    };
   }, [loading, works]);
 
+  /* Background Scroll Lock Configuration */
+  useEffect(() => {
+    if (activeProject) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [activeProject]);
+
+  const getEmbedUrl = (url: string) => {
+    if (!url) return "";
+    const ytRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(ytRegExp);
+    if (match && match[2].length === 11) {
+      return `https://www.youtube.com/embed/${match[2]}?autoplay=1`;
+    }
+    return url;
+  };
+
   return (
-    <section id="works" ref={sectionRef}>
-      <div className="section-container">
-        <div className="section-header works-header">
-          <h2 className="section-title kinetic-reveal">Selected Works.</h2>
-        </div>
+    <>
+      <div ref={spacerRef} style={{ width: "100%", overflow: "hidden", position: "relative" }}>
+        <section id="works" ref={sectionRef} style={{ opacity: loading ? 0.3 : 1, transition: "opacity 0.4s" }}>
+          <div style={{ width: "100%", display: "flex", justifyContent: "center", paddingTop: "2vh", paddingBottom: "0vh" }}>
+            <div className="section-header works-header" style={{ textAlign: "center", marginBottom: 0 }}>
+              <h2 className="section-title kinetic-reveal" style={{ margin: 0 }}>
+                Selected Works.
+              </h2>
+            </div>
+          </div>
+          <div className="works-horizontal-scroll" ref={scrollRef}>
+            {loading ? (
+              <p style={{ color: "white", padding: "5vw" }}>Loading...</p>
+            ) : (
+              works.map((item) => {
+                const isDirectVideo = item.video_url && (item.video_url.endsWith(".mp4") || item.video_url.endsWith(".webm") || !item.video_url.includes("youtu"));
+
+                return (
+                  <a
+                    key={item.id}
+                    href={item.project_url || "#"}
+                    target="_blank"
+                    className="work-link-wrapper"
+                    style={{ flexShrink: 0 }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveProject(item);
+                    }}
+                  >
+                    <div className="glass-card elegant-work-card">
+                      {item.video_url && isDirectVideo ? (
+                        <video src={item.video_url} autoPlay muted loop playsInline className="work-video-bg" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <div
+                          className="work-image-bg"
+                          style={{
+                            backgroundImage: `url('${item.auto_thumbnail}')`,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                          }}
+                        />
+                      )}
+
+                      <div className="work-content">
+                        <span className="work-category">{item.category}</span>
+                        <h3 className="elegant-heading">{item.title}</h3>
+                      </div>
+                    </div>
+                  </a>
+                );
+              })
+            )}
+          </div>
+        </section>
       </div>
 
-      <div className="works-horizontal-scroll" ref={scrollRef}>
-        {loading ? (
-          <p style={{ color: "white", padding: "5vw" }}>Loading...</p>
-        ) : (
-          works.map((item) => (
-            <a key={item.id} href={item.project_url || "#"} target="_blank" className="work-link-wrapper">
-              <div className="glass-card elegant-work-card">
-                {item.video_url ? (
-                  <video src={item.video_url} autoPlay muted loop playsInline className="work-video-bg" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-                ) : (
-                  <div className="work-image-bg" style={{ backgroundImage: `url('${item.image_url}')` }}></div>
-                )}
-                <div className="work-content">
-                  <span className="work-category">{item.category}</span>
-                  <h3 className="elegant-heading">{item.title}</h3>
+      {/* Modal Overlay Portal Wrapper */}
+      {mounted &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 99999,
+              display: activeProject ? "flex" : "none",
+              background: "rgba(0, 0, 0, 0.9)",
+              backdropFilter: "blur(20px)",
+              padding: "clamp(1rem, 3vw, 2rem)",
+            }}
+            onClick={() => setActiveProject(null)}
+          >
+            {activeProject && (
+              <div
+                className="glass-card"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: "100%",
+                  maxWidth: "1000px",
+                  borderRadius: "20px",
+                  background: "rgba(10, 10, 10, 0.8)",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  overflow: "hidden",
+                  color: "#fff",
+                  boxShadow: "0 30px 60px -12px rgba(0,0,0,0.8)",
+                  margin: "auto",
+                }}
+              >
+                <div style={{ padding: "1.5rem 2rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  <h2 style={{ fontSize: "1.3rem", fontWeight: "600" }}>{activeProject.title}</h2>
+                  <button onClick={() => setActiveProject(null)} style={{ background: "none", border: "none", color: "inherit", fontSize: "1.5rem", cursor: "pointer", opacity: 0.5 }}>
+                    ✕
+                  </button>
+                </div>
+
+                {/* Responsive Height Engine for Media Frame */}
+                <div style={{ width: "100%", height: "clamp(240px, 55vh, 520px)", background: "#000" }}>
+                  {activeProject.video_url ? (
+                    activeProject.video_url.includes("youtube.com") || activeProject.video_url.includes("youtu.be") ? (
+                      <iframe
+                        src={getEmbedUrl(activeProject.video_url)}
+                        title={activeProject.title}
+                        style={{ width: "100%", height: "100%", border: "none" }}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <video src={activeProject.video_url} controls autoPlay style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                    )
+                  ) : activeProject.project_url && !(activeProject.project_url.includes("github.com") || activeProject.project_url.includes("behance.net")) ? (
+                    <iframe src={activeProject.project_url} title={activeProject.title} style={{ width: "100%", height: "100%", border: "none", background: "#fff" }} sandbox="allow-scripts allow-same-origin allow-popups" />
+                  ) : (
+                    <img src={activeProject.image_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe"} alt={activeProject.title} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                  )}
+                </div>
+
+                <div style={{ padding: "1.2rem 2rem", display: "flex", justifyContent: "flex-end", background: "rgba(0,0,0,0.3)" }}>
+                  <a
+                    href={activeProject.project_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#fff", textDecoration: "none", background: "rgba(255,255,255,0.08)", padding: "0.6rem 1.5rem", borderRadius: "6px", fontSize: "0.85rem", border: "1px solid rgba(255,255,255,0.1)", fontWeight: "600" }}
+                  >
+                    Buka Situs Asli ↗
+                  </a>
                 </div>
               </div>
-            </a>
-          ))
+            )}
+          </div>,
+          document.body,
         )}
-      </div>
-    </section>
+    </>
   );
 }

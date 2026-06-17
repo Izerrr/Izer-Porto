@@ -83,7 +83,7 @@ export default function Hero() {
           <span>{typewriter}</span>
           <span className="typing-cursor">|</span>
         </h2>
-        <p className="hero-role reveal-text">IT Developer. Creative Lead. Problem Solver.</p>
+        <p className="hero-role reveal-text">Crafting Digital Solutions with Creative Edge.</p>
       </div>
 
       <div className="scroll-indicator">

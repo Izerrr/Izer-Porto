@@ -22,7 +22,7 @@ export default function Footer() {
             GitHub
           </a>
         </div>
-        <p className="copyright">&copy; 2026 IZER. DESIGNED WITH PRECISION.</p>
+        <p className="copyright">&copy; 2026 IZER. CRAFTED WITH PROFESSIONALISM.</p>
       </div>
     </footer>
   );

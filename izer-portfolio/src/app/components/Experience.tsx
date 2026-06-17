@@ -79,7 +79,7 @@ export default function Experience() {
               cursor: "hidden",
               fontSize: "1rem",
               fontWeight: "600",
-              color: "inherit", // Ikut warna teks global bawaan tema lo
+              color: "inherit",
               // 💡 KUNCI: Mainkan opacity & currentColor biar adaptif di light/dark mode tanpa CSS tambahan
               opacity: activeTab === "experience" ? 1 : 0.4,
               borderBottom: "2px solid",
@@ -111,7 +111,7 @@ export default function Experience() {
         </div>
       </div>
 
-      {/* --- TIMELINE LIST (STRUKTUR LAYOUT 100% COCOK SAMA SCREENSHOT LO) --- */}
+      {/* --- TIMELINE LIST --- */}
       <div className="experience-list" ref={listRef} style={{ marginTop: "4rem" }}>
         {loading ? (
           <p style={{ textAlign: "center", opacity: 0.5 }}>Loading database...</p>
@@ -125,7 +125,6 @@ export default function Experience() {
                 justifyContent: "space-between",
                 alignItems: "flex-start",
                 padding: "2.5rem 0",
-                // 💡 Menggunakan glass-border bawaan lo biar garisnya auto-gelap/terang pas di-switch
                 borderBottom: "1px solid var(--glass-border, rgba(255, 255, 255, 0.08))",
                 willChange: "transform, opacity",
               }}

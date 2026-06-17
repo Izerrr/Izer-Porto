@@ -8,41 +8,88 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function ClientWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // 1. Smooth Scroll Engine (Lenis)
+    /* Lenis Smooth Scroll Engine Setup */
     const lenis = new Lenis({ lerp: 0.1 });
     lenis.on("scroll", ScrollTrigger.update);
+
     function raf(time: number) {
       lenis.raf(time);
       requestAnimationFrame(raf);
     }
     requestAnimationFrame(raf);
 
-    // Listener buat Smooth Scroll (Dipicu Navbar)
     const handleScroll = (e: any) => lenis.scrollTo(e.detail, { duration: 1.5 });
     window.addEventListener("lenis-scroll", handleScroll);
 
-    // 2. Immersive Cursor Logic
+    /* Initial Cursor State */
     const cursor = document.querySelector(".cursor-follower") as HTMLElement;
-    if (!cursor) return;
+    if (cursor) {
+      gsap.set(cursor, { opacity: 0 });
+    }
 
-    // Gerakan kursor dengan lag halus (duration 0.15)
+    /* Device Detection Blocker */
+    const checkIsMobile = () => {
+      return window.innerWidth <= 768 || "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    };
+
+    /* Cursor Movement Handler */
     const moveCursor = (e: MouseEvent) => {
-      gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.15, ease: "power2.out" });
-    };
-    window.addEventListener("mousemove", moveCursor);
+      const targetCursor = document.querySelector(".cursor-follower") as HTMLElement;
+      if (!targetCursor) return;
 
-    // 3. Hover Mentul (Event Delegation)
+      if (checkIsMobile()) {
+        gsap.set(targetCursor, { opacity: 0 });
+        return;
+      }
+
+      gsap.to(targetCursor, {
+        x: e.clientX,
+        y: e.clientY,
+        duration: 0.15,
+        ease: "power2.out",
+        opacity: 1,
+      });
+    };
+
+    /* Cursor Hide Handler */
+    const hideCursor = () => {
+      const targetCursor = document.querySelector(".cursor-follower") as HTMLElement;
+      if (targetCursor) {
+        gsap.to(targetCursor, { opacity: 0, duration: 0.1 });
+      }
+    };
+
+    /* Event Delegation Hover Handlers */
+    /* Event Delegation Hover Handlers */
     const handleOver = (e: MouseEvent) => {
+      if (checkIsMobile()) return;
+
+      const targetCursor = document.querySelector(".cursor-follower") as HTMLElement;
       const target = (e.target as HTMLElement).closest("a, button, .magnetic-target");
-      if (target) gsap.to(cursor, { scale: 3.5, opacity: 0.3, duration: 0.3, ease: "back.out(1.7)" });
-    };
-    const handleOut = (e: MouseEvent) => {
-      const target = (e.target as HTMLElement).closest("a, button, .magnetic-target");
-      if (target) gsap.to(cursor, { scale: 1, opacity: 1, duration: 0.3 });
+
+      if (target && targetCursor) {
+        /* Cek jika kursor menyentuh kartu portfolio utama */
+        if (target.classList.contains("work-link-wrapper")) {
+          gsap.to(targetCursor, { scale: 1.5, opacity: 0.4, duration: 0.3 });
+        } else {
+          /* Skala balon besar untuk tombol/menu kecil standar */
+          gsap.to(targetCursor, { scale: 3.5, opacity: 0.3, duration: 0.3, ease: "back.out(1.7)" });
+        }
+      }
     };
 
-    // 4. Scroll Progress Bar
-    gsap.to(".scroll-progress", {
+    const handleOut = (e: MouseEvent) => {
+      if (checkIsMobile()) return;
+
+      const targetCursor = document.querySelector(".cursor-follower") as HTMLElement;
+      const target = (e.target as HTMLElement).closest("a, button, .magnetic-target");
+      if (target && targetCursor) {
+        gsap.to(targetCursor, { scale: 1, opacity: 1, duration: 0.3 });
+      }
+    };
+
+    /* Scroll Progress Bar Tracking */
+    const progressAnimation = gsap.to(".scroll-progress", {
       scaleX: 1,
       ease: "none",
       scrollTrigger: {
@@ -53,15 +100,24 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
       },
     });
 
+    /* Event Listeners Initialization */
+    window.addEventListener("mousemove", moveCursor);
+    document.addEventListener("mouseleave", hideCursor);
+    window.addEventListener("touchstart", hideCursor);
     window.addEventListener("mouseover", handleOver);
     window.addEventListener("mouseout", handleOut);
 
+    /* Garbage Collection and Memory Cleanup */
     return () => {
-      window.removeEventListener("mousemove", moveCursor);
       window.removeEventListener("lenis-scroll", handleScroll);
+      window.removeEventListener("mousemove", moveCursor);
+      document.removeEventListener("mouseleave", hideCursor);
+      window.removeEventListener("touchstart", hideCursor);
       window.removeEventListener("mouseover", handleOver);
       window.removeEventListener("mouseout", handleOut);
+
       lenis.destroy();
+      progressAnimation.scrollTrigger?.kill();
       ScrollTrigger.getAll().forEach((t) => t.kill());
     };
   }, []);
