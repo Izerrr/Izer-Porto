@@ -130,15 +130,17 @@ export default function Experience() {
               }}
             >
               {/* SISI KIRI: Durasi & Posisi */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              <div className="exp-left" style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
                 <span style={{ fontSize: "0.85rem", opacity: 0.4, textTransform: "uppercase", letterSpacing: "0.5px" }}>{item.date_range}</span>
-                <h3 style={{ fontSize: "2.2rem", fontWeight: "700", margin: 0, letterSpacing: "-0.5px" }}>{item.title}</h3>
+                <h3 style={{ fontSize: "clamp(1.4rem, 4vw, 2.2rem)", fontWeight: "700", margin: 0, letterSpacing: "-0.5px" }}>{item.title}</h3>
               </div>
 
               {/* SISI KANAN: Deskripsi */}
-              <div style={{ maxWidth: "50%", fontSize: "1rem", lineHeight: "1.7", opacity: 0.8 }}>
-                <p style={{ margin: 0 }}>{item.description || "—"}</p>
-              </div>
+              {item.description && (
+                <div className="exp-right" style={{ fontSize: "1rem", lineHeight: "1.7", opacity: 0.8 }}>
+                  <p style={{ margin: 0 }}>{item.description}</p>
+                </div>
+              )}
             </div>
           ))
         ) : (

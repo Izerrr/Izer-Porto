@@ -305,6 +305,7 @@ body.light-mode .logo-light {
   align-items: center;
   padding-top: 8rem;
   position: relative;
+  width: 100%;
 }
 
 .hero-visual-box {
@@ -364,6 +365,7 @@ body.light-mode .hero-photo {
 .hero-branding {
   text-align: center;
   max-width: 600px;
+  width: 100%;
   padding-bottom: 3rem;
 }
 .hero-name {
@@ -373,7 +375,19 @@ body.light-mode .hero-photo {
   letter-spacing: -0.04em;
   min-height: 50px;
   word-break: break-word;
+  text-align: center;
+  min-height: 60px !important;
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
 }
+
+.hero-name span:first-child {
+  display: inline-block;
+  text-align: left;
+  min-width: 450px;
+}
+
 .typing-cursor {
   display: inline-block;
   width: 3px;
@@ -612,7 +626,7 @@ body.light-mode .hero-photo {
   font-weight: 400;
 }
 
-/* Works Section Desktop Setup (Mengunci Total Kalkulasi GSAP) */
+/* Works Section Desktop Setup */
 #works {
   width: 100%;
   height: 100vh;
@@ -630,7 +644,6 @@ body.light-mode .hero-photo {
   align-items: flex-end;
 }
 
-/* Track Desktop: Mutlak Tanpa Properti Scroll Alami Mobile */
 .works-horizontal-scroll {
   display: flex;
   gap: 4rem;
@@ -646,7 +659,10 @@ body.light-mode .hero-photo {
   text-decoration: none;
 }
 
-/* Ukuran Kartu Raksasa Versi Lawas di Desktop */
+.work-link-wrapper:hover .work-live-iframe {
+  opacity: 1 !important;
+}
+
 .elegant-work-card {
   width: 850px;
   height: 65vh;
@@ -772,7 +788,8 @@ body.light-mode .hero-photo {
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  /* 💥 FIXED PRELOADER MOBILE: pakai dvh biar center total gleser di HP */
+  height: 100dvh;
   background-color: var(--bg-midnight);
   z-index: 100000;
   display: flex;
@@ -790,6 +807,7 @@ body.loading {
   overflow: hidden;
   height: clamp(4rem, 15vw, 15rem);
   display: flex;
+  justify-content: center;
   align-items: center;
 }
 .preloader-text {
@@ -798,6 +816,8 @@ body.loading {
   color: var(--text-main);
   line-height: 1;
   display: block;
+  justify-content: center;
+  align-items: center;
 }
 .preloader-bar {
   width: 300px;
@@ -907,7 +927,7 @@ body.light-mode .cursor-follower.active {
 }
 
 /* ==========================================================================
-   EXCLUSIVE RESPONSIVE MOBILE OVERRIDES (STERIL & TERKUNCI)
+    EXCLUSIVE RESPONSIVE MOBILE OVERRIDES (STERIL & TERKUNCI)
    ========================================================================== */
 @media (max-width: 768px) {
   .hamburger {
@@ -946,7 +966,6 @@ body.light-mode .cursor-follower.active {
     display: block !important;
   }
 
-  /* Posisikan Aturan Scroll Alami Hanya Aktif di Sini */
   .works-horizontal-scroll {
     width: auto !important;
     height: auto !important;
@@ -959,7 +978,6 @@ body.light-mode .cursor-follower.active {
     padding: 0 1.5rem !important;
   }
 
-  /* Kunci Dimensi Kartu Mobile Sesuai Patokan UX Tanpa Loncat Skala */
   .elegant-work-card {
     width: 85vw !important;
     height: 280px !important;
@@ -981,7 +999,7 @@ body.light-mode .cursor-follower.active {
     margin-bottom: 0.25rem;
   }
 
-  /* SECTION ABOUT KHUSUS MOBILE (Foto di Bawah Teks, Anti-Collapse) */
+  /* SECTION ABOUT KHUSUS MOBILE */
   .about-combined {
     display: flex !important;
     flex-direction: column !important;
@@ -1126,17 +1144,76 @@ body.light-mode .cursor-follower.active {
 
   .hero-section {
     padding-top: 6.5rem;
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
   }
+
   .hero-visual-box {
+    width: 100% !important;
     height: 45vh;
     min-height: 350px;
     margin-bottom: 2rem;
   }
+
   .hero-watermark {
     font-size: clamp(3.5rem, 20vw, 8rem);
   }
+
   .hero-photo {
     height: 90%;
+  }
+
+  .hero-name {
+    font-size: 1.75rem !important;
+    min-height: 45px !important;
+    margin-bottom: 0.5rem !important;
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  .hero-name span:first-child {
+    min-width: auto !important;
+    display: inline !important;
+    text-align: center !important;
+  }
+
+  .hero-name,
+  .hero-role {
+    display: block !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Force baris list experience/education biar numpuk ke bawah */
+  .exp-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem; /* Kasih jarak vertikal antara nama institusi dan deskripsinya */
+    padding: 2rem 0rem !important; /* Rapikan padding vertikalnya */
+  }
+
+  /* Paksa teks kiri melebar penuh */
+  .exp-left {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Paksa teks kanan (deskripsi/jurusan) melebar penuh & rata kiri biar natural */
+  .exp-right {
+    width: 100% !important;
+    max-width: 100% !important;
+    text-align: right !important; /* Di HP lebih rapi rata kiri daripada rata kanan */
+  }
+
+  /* Override max-width 50% milik desktop tadi menjadi full se-layar HP */
+  .exp-description {
+    max-width: 100% !important;
   }
 
   .lando-footer {
@@ -1147,5 +1224,13 @@ body.light-mode .cursor-follower.active {
     flex-direction: column;
     gap: 1.5rem;
     text-align: center;
+  }
+}
+
+@media (min-width: 769px) {
+  .hero-name span:first-child {
+    display: inline-block;
+    text-align: left;
+    min-width: auto !important;
   }
 }

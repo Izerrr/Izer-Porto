@@ -80,7 +80,7 @@ export default function Hero() {
 
       <div className="hero-branding scroll-reveal">
         <h2 className="hero-name">
-          <span>{typewriter}</span>
+          <span className="typewriter-text">{typewriter}</span>
           <span className="typing-cursor">|</span>
         </h2>
         <p className="hero-role reveal-text">Crafting Digital Solutions with Creative Edge.</p>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import ClientWrapper from "./components/ClientWrapper";
+import { Inter } from "next/font/google";
 
 export const metadata: Metadata = {
   title: "IZER | Portfolio & IT Specialist", // Judul utama tab browser
@@ -27,15 +28,23 @@ export const metadata: Metadata = {
   },
 };
 
+// 1. Load font Inter dan daftarkan sebagai variable
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="loading">
-        {/* Visual global statis - CUMA DI SINI, JANGAN DI PAGE.TSX */}
+      {/* 2. KUNCINYA DI SINI: Gabungkan inter.variable dan class loading bawaan lo */}
+      <body className={`${inter.variable} loading`}>
+        {/* Visual global statis milik portfolio lo */}
         <div className="cursor-follower"></div>
         <div className="ambient-glow"></div>
         <div className="scroll-progress"></div>
 
+        {/* Wrapper komponen client lo */}
         <ClientWrapper>{children}</ClientWrapper>
       </body>
     </html>

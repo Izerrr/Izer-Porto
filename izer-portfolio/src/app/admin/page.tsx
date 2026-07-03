@@ -131,9 +131,8 @@ export default function AdminPage() {
     setForm({ id: null, title: "", description: "", category: selectedCategory, date_range: "", image_url: "", project_url: "", video_url: "" });
   }, [selectedCategory, fetchData]);
 
-  // --- FUNGSI DETEKTIF LINK OTOMATIS (WIRED TO SINGLE STATE FORM) ---
+  // --- FUNGSI DETEKTIF LINK OTOMATIS ---
   const handleProjectUrlChange = async (url: string) => {
-    // 1. Update text input project_url secara real-time agar tidak delay mengetik
     setForm((prev) => ({ ...prev, project_url: url }));
 
     if (!url) {
@@ -141,7 +140,6 @@ export default function AdminPage() {
       return;
     }
 
-    // A. Cek jika link YouTube (Agar dapet gambar HQ instan tanpa API luar)
     const ytRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const ytMatch = url.match(ytRegExp);
 
@@ -154,7 +152,6 @@ export default function AdminPage() {
       return;
     }
 
-    // B. Kalau link web biasa, terawang pakai Microlink API
     setLoadingPreview(true);
     try {
       const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(url)}`);
@@ -163,7 +160,6 @@ export default function AdminPage() {
       if (json.status === "success" && json.data.image?.url) {
         setForm((prev) => ({ ...prev, image_url: json.data.image.url }));
       } else {
-        // Fallback: Potret screenshot web otomatis kalau webnya pelit info OpenGraph
         setForm((prev) => ({
           ...prev,
           image_url: `https://api.microlink.io?url=${encodeURIComponent(url)}&screenshot=true&embed=screenshot.url`,
@@ -257,15 +253,23 @@ export default function AdminPage() {
   // RENDER CONFIGURATION 1: LOGIN PAGE RESPONSIVE
   if (!isLoggedIn) {
     return (
-      <main style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "var(--bg-main)" }}>
-        <div className="glass-card" style={{ padding: "3rem", width: "100%", maxWidth: "400px", textAlign: "center" }}>
+      <main style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "var(--bg-main)", padding: "1.5rem", boxSizing: "border-box" }}>
+        <div className="glass-card" style={{ padding: "clamp(1.5rem, 5vw, 3rem)", width: "100%", maxWidth: "400px", textAlign: "center", boxSizing: "border-box" }}>
           <h2 className="elegant-heading-small" style={{ marginBottom: "2rem" }}>
             Admin Panel
           </h2>
           <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            <input type="text" placeholder="Username" className="glass-card" style={{ padding: "1rem", color: "inherit" }} value={username} onChange={(e) => setUsername(e.target.value)} required />
-            <input type="password" placeholder="Password" className="glass-card" style={{ padding: "1rem", color: "inherit" }} value={password} onChange={(e) => setPassword(e.target.value)} required />
-            <button type="submit" className="btn-primary magnetic-target" style={{ marginTop: "1rem" }}>
+            <input type="text" placeholder="Username" className="glass-card" style={{ padding: "1rem", color: "inherit", width: "100%", boxSizing: "border-box" }} value={username} onChange={(e) => setUsername(e.target.value)} required />
+            <input
+              type="password"
+              placeholder="Password"
+              className="glass-card"
+              style={{ padding: "1rem", color: "inherit", width: "100%", boxSizing: "border-box" }}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button type="submit" className="btn-primary magnetic-target" style={{ marginTop: "1rem", width: "100%" }}>
               ENTER PANEL
             </button>
           </form>
@@ -275,27 +279,30 @@ export default function AdminPage() {
   }
 
   // RENDER CONFIGURATION 2: MAIN DASHBOARD RESPONSIVE 100%
-
   return (
-    <main style={{ paddingTop: "8rem", minHeight: "100vh" }}>
+    <main style={{ paddingTop: "8rem", minHeight: "100vh", width: "100%", overflowX: "hidden" }}>
       <Navbar />
-      <div className="section-container">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h1 className="section-title">Admin Panel</h1>
+      <div className="section-container" style={{ width: "100%", boxSizing: "border-box" }}>
+        {/* --- HEADER PANEL --- */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap", marginBottom: "2rem" }}>
+          <h1 className="section-title" style={{ margin: 0 }}>
+            Admin Panel
+          </h1>
           <button onClick={handleLogout} className="magnetic-target" style={{ color: "#ff4d4d", background: "none", border: "1px solid #ff4d4d", padding: "0.5rem 1.5rem", borderRadius: "4px", cursor: "hidden", fontWeight: "600" }}>
             LOGOUT
           </button>
         </div>
 
         {/* --- FILTER TAB --- */}
-        <div style={{ display: "flex", gap: "1rem", justifyContent: "center", margin: "2rem 0", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "0.75rem", rowGap: "0.75rem", justifyContent: "center", margin: "2rem 0", flexWrap: "wrap", width: "100%" }}>
           {["about", "about_images", "skills", "tech_icons", "experience", "education", "works"].map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
               className={`glass-card magnetic-target ${selectedCategory === cat ? "active" : ""}`}
               style={{
-                padding: "0.8rem 2rem",
+                padding: "0.6rem 1.2rem",
+                fontSize: "0.8rem",
                 cursor: "hidden",
                 color: "inherit",
                 opacity: selectedCategory === cat ? 1 : 0.4,
@@ -309,9 +316,10 @@ export default function AdminPage() {
           ))}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))", gap: "2rem" }}>
+        {/* --- GRID UTAMA AUTOFIT MOBILE-FRIENDLY --- */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 290px), 1fr))", gap: "2rem", width: "100%" }}>
           {/* --- LEFT: FORM ENTRY RESPONSIVE --- */}
-          <div className="glass-card" style={{ padding: "2.5rem" }}>
+          <div className="glass-card" style={{ padding: "clamp(1.2rem, 4vw, 2.5rem)", width: "100%", boxSizing: "border-box" }}>
             <h3 className="elegant-heading-small">{form.id ? "Edit Item" : "Add New Item"}</h3>
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.2rem", marginTop: "1.5rem" }}>
               {selectedCategory !== "about_images" && (
@@ -319,20 +327,27 @@ export default function AdminPage() {
                   type="text"
                   placeholder={selectedCategory === "skills" ? "Nama Kategori Skill" : selectedCategory === "tech_icons" ? "Nama Tool/Tech" : selectedCategory === "education" ? "Nama Sekolah / Instansi" : "Title / Position"}
                   className="glass-card"
-                  style={{ padding: "1rem", color: "inherit" }}
+                  style={{ padding: "1rem", color: "inherit", width: "100%", boxSizing: "border-box" }}
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   required={selectedCategory !== "about_images"}
                 />
               )}
               {["experience", "education"].includes(selectedCategory) && (
-                <input type="text" placeholder="Date Range" className="glass-card" style={{ padding: "1rem", color: "inherit" }} value={form.date_range || ""} onChange={(e) => setForm({ ...form, date_range: e.target.value })} />
+                <input
+                  type="text"
+                  placeholder="Date Range"
+                  className="glass-card"
+                  style={{ padding: "1rem", color: "inherit", width: "100%", boxSizing: "border-box" }}
+                  value={form.date_range || ""}
+                  onChange={(e) => setForm({ ...form, date_range: e.target.value })}
+                />
               )}
               {["about", "skills", "experience", "education"].includes(selectedCategory) && (
                 <textarea
                   placeholder={selectedCategory === "education" ? "Isi Jurusan, IPK, Prestasi..." : "Isi konten teks di sini..."}
                   className="glass-card"
-                  style={{ padding: "1rem", color: "inherit", minHeight: "150px", resize: "vertical" }}
+                  style={{ padding: "1rem", color: "inherit", minHeight: "150px", resize: "vertical", width: "100%", boxSizing: "border-box" }}
                   value={form.description || ""}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
@@ -342,7 +357,7 @@ export default function AdminPage() {
                   type="text"
                   placeholder={selectedCategory === "tech_icons" ? "Icon URL" : "Image URL (Auto-filled by Project Link)"}
                   className="glass-card"
-                  style={{ padding: "1rem", color: "inherit" }}
+                  style={{ padding: "1rem", color: "inherit", width: "100%", boxSizing: "border-box" }}
                   value={form.image_url || ""}
                   onChange={(e) => setForm({ ...form, image_url: e.target.value })}
                   required={["about_images", "tech_icons"].includes(selectedCategory)}
@@ -354,13 +369,20 @@ export default function AdminPage() {
                     type="text"
                     placeholder="Project Link (e.g., GitHub, Website, Behance)"
                     className="glass-card"
-                    style={{ padding: "1rem", color: "inherit" }}
+                    style={{ padding: "1rem", color: "inherit", width: "100%", boxSizing: "border-box" }}
                     value={form.project_url || ""}
-                    onChange={(e) => handleProjectUrlChange(e.target.value)} // <-- Fungsi sakti pendorong auto-thumbnail
+                    onChange={(e) => handleProjectUrlChange(e.target.value)}
                   />
-                  <input type="text" placeholder="Video URL (.mp4)" className="glass-card" style={{ padding: "1rem", color: "inherit" }} value={form.video_url || ""} onChange={(e) => setForm({ ...form, video_url: e.target.value })} />
+                  <input
+                    type="text"
+                    placeholder="Video URL (.mp4)"
+                    className="glass-card"
+                    style={{ padding: "1rem", color: "inherit", width: "100%", boxSizing: "border-box" }}
+                    value={form.video_url || ""}
+                    onChange={(e) => setForm({ ...form, video_url: e.target.value })}
+                  />
 
-                  {/* KOTAK PREVIEW MATANG UTK THUMBNAIL */}
+                  {/* KOTAK PREVIEW INTERAKTIF */}
                   <div
                     className="glass-card"
                     style={{
@@ -375,6 +397,7 @@ export default function AdminPage() {
                       background: "#000",
                       overflow: "hidden",
                       borderRadius: "8px",
+                      boxSizing: "border-box",
                     }}
                   >
                     {loadingPreview ? (
@@ -388,26 +411,21 @@ export default function AdminPage() {
                         <div style={{ width: "100%", height: "160px", borderRadius: "6px", overflow: "hidden", background: "#111" }}>
                           {form.video_url ? (
                             form.video_url.includes("youtube.com") || form.video_url.includes("youtu.be") ? (
-                              /* KONDISI A: LIVE YOUTUBE EMBED IN ADMIN */
                               <iframe
                                 src={`https://www.youtube.com/embed/${form.video_url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/)?.[2]}`}
                                 style={{ width: "100%", height: "100%", border: "none" }}
                                 allowFullScreen
                               />
                             ) : (
-                              /* KONDISI B: LIVE MP4 VIDEO IN ADMIN */
                               <video src={form.video_url} controls style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                             )
                           ) : form.project_url && !(form.project_url.includes("github.com") || form.project_url.includes("behance.net") || form.project_url.includes("google.com")) ? (
-                            /* KONDISI C: LIVE WEBSITE SCROLLABLE IN ADMIN (Hanya utk web yg tidak dikunci X-Frame) */
                             <iframe src={form.project_url} style={{ width: "100%", height: "100%", border: "none", background: "#fff" }} sandbox="allow-scripts allow-same-origin" />
                           ) : (
-                            /* FALLBACK KONDISI D: PREVIEW GAMBAR STATIS DARI LINK OPEN GRAPH */
                             <img src={form.image_url || "/placeholder.jpg"} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                           )}
                         </div>
 
-                        {/* Peringatan pinter khusus di Admin Panel biar lo gak bingung kenapa iframe-nya blank */}
                         {(form.project_url?.includes("github.com") || form.project_url?.includes("behance.net")) && (
                           <p style={{ fontSize: "0.7rem", color: "#ff9999", marginTop: "0.5rem", lineHeight: "1.3" }}>
                             ⚠️ Website ini (GitHub/Behance) memblokir fitur embed iframe luar. Preview otomatis dialihkan menggunakan Thumbnail Statis di atas.
@@ -420,14 +438,16 @@ export default function AdminPage() {
                   </div>
                 </>
               )}
-              <button type="submit" className="btn-primary magnetic-target" disabled={loading}>
+
+              <button type="submit" className="btn-primary magnetic-target" disabled={loading} style={{ width: "100%" }}>
                 {loading ? "SAVING..." : form.id ? "UPDATE DATA" : "PUBLISH DATA"}
               </button>
+
               {form.id && (
                 <button
                   type="button"
                   onClick={() => setForm({ id: null, title: "", description: "", category: selectedCategory, date_range: "", image_url: "", project_url: "", video_url: "" })}
-                  style={{ background: "none", color: "#ff4d4d", border: "none", fontSize: "0.8rem", cursor: "hidden" }}
+                  style={{ background: "none", color: "#ff4d4d", border: "none", fontSize: "0.8rem", cursor: "hidden", width: "100%", textAlign: "center" }}
                 >
                   CANCEL EDIT
                 </button>
@@ -436,17 +456,21 @@ export default function AdminPage() {
           </div>
 
           {/* --- RIGHT: LIST RESPONSIVE --- */}
-          <div className="glass-card" style={{ padding: "2.5rem" }}>
+          <div className="glass-card" style={{ padding: "clamp(1.2rem, 4vw, 2.5rem)", width: "100%", boxSizing: "border-box" }}>
             <h3 className="elegant-heading-small">Manage {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1).replace("_", " ")}</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1.5rem", maxHeight: "600px", overflowY: "auto", paddingRight: "0.5rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1.5rem", maxHeight: "600px", overflowY: "auto", paddingRight: "0.5rem", width: "100%" }}>
               {dataList.length > 0 ? (
                 dataList.map((item) => (
-                  <div key={item.id} className="glass-card" style={{ padding: "1rem 1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid var(--glass-border, rgba(255,255,255,0.05))" }}>
-                    <div style={{ overflow: "hidden", marginRight: "1rem", flex: 1 }}>
-                      <p style={{ fontSize: "0.9rem", fontWeight: "600", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>{selectedCategory === "about_images" ? item.image_url : item.title}</p>
+                  <div
+                    key={item.id}
+                    className="glass-card"
+                    style={{ padding: "1rem 1.2rem", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid var(--glass-border, rgba(255,255,255,0.05))", width: "100%", boxSizing: "border-box" }}
+                  >
+                    <div style={{ overflow: "hidden", marginRight: "0.75rem", flex: 1 }}>
+                      <p style={{ fontSize: "0.85rem", fontWeight: "600", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>{selectedCategory === "about_images" ? item.image_url : item.title}</p>
                       <p style={{ fontSize: "0.7rem", opacity: 0.4 }}>ID: {item.id}</p>
                     </div>
-                    <div style={{ display: "flex", gap: "1rem", flexShrink: 0 }}>
+                    <div style={{ display: "flex", gap: "0.75rem", flexShrink: 0 }}>
                       <button onClick={() => handleEdit(item)} className="magnetic-target" style={{ color: "#4da6ff", background: "none", border: "none", cursor: "hidden", fontSize: "0.8rem", fontWeight: "700" }}>
                         EDIT
                       </button>
@@ -457,7 +481,7 @@ export default function AdminPage() {
                   </div>
                 ))
               ) : (
-                <div style={{ textAlign: "center", padding: "3rem 0", opacity: 0.3 }}>
+                <div style={{ textAlign: "center", padding: "3rem 0", opacity: 0.3, width: "100%" }}>
                   <p>Gak ada data di kategori ini.</p>
                 </div>
               )}

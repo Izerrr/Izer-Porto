@@ -5,7 +5,7 @@ export default function Footer() {
         <h2 className="footer-heading kinetic-reveal">Let's collaborate.</h2>
         <p className="footer-sub">Terbuka untuk ngobrolin project IT, kolaborasi multimedia, atau sekadar lari bareng pagi-pagi.</p>
         <div className="footer-action">
-          <a href="mailto:rezizavkaro@gmail.com" className="btn-primary magnetic-target">
+          <a href="mailto:rayhanfahrezisetiawan@gmail.com" className="btn-primary magnetic-target">
             Get in touch
           </a>
         </div>
