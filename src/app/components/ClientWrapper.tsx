@@ -21,70 +21,78 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
     const handleScroll = (e: any) => lenis.scrollTo(e.detail, { duration: 1.5 });
     window.addEventListener("lenis-scroll", handleScroll);
 
-    /* Initial Cursor State */
-    const cursor = document.querySelector(".cursor-follower") as HTMLElement;
-    if (cursor) {
-      gsap.set(cursor, { opacity: 0 });
-    }
-
     /* Device Detection Blocker */
     const checkIsMobile = () => {
       return window.innerWidth <= 768 || "ontouchstart" in window || navigator.maxTouchPoints > 0;
     };
 
+    /* 💡 CACHE DOM ELEMENT ONCE (Fix High CPU Load) */
+    const targetCursor = document.querySelector(".cursor-follower") as HTMLElement;
+
+    /* 💡 GSAP QUICKTO INITIALIZATION (Fix Solitaire Artifacting / Ghosting) */
+    let xTo: ((value: number) => void) | null = null;
+    let yTo: ((value: number) => void) | null = null;
+
+    if (targetCursor) {
+      // Force GPU Rendering Layer to avoid repaint trails
+      gsap.set(targetCursor, { opacity: 0, force3D: true });
+
+      // Highly-optimized quick setters for high polling rate / virtual mice
+      xTo = gsap.quickTo(targetCursor, "x", { duration: 0.15, ease: "power2.out" });
+      yTo = gsap.quickTo(targetCursor, "y", { duration: 0.15, ease: "power2.out" });
+    }
+
+    let isCursorVisible = false;
+
     /* Cursor Movement Handler */
     const moveCursor = (e: MouseEvent) => {
-      const targetCursor = document.querySelector(".cursor-follower") as HTMLElement;
-      if (!targetCursor) return;
-
-      if (checkIsMobile()) {
-        gsap.set(targetCursor, { opacity: 0 });
+      if (!targetCursor || checkIsMobile()) {
+        if (targetCursor) gsap.set(targetCursor, { opacity: 0 });
         return;
       }
 
-      gsap.to(targetCursor, {
-        x: e.clientX,
-        y: e.clientY,
-        duration: 0.15,
-        ease: "power2.out",
-        opacity: 1,
-      });
+      // Update position via ultra-fast quickTo
+      if (xTo && yTo) {
+        xTo(e.clientX);
+        yTo(e.clientY);
+      }
+
+      // Smooth fade in once cursor moves
+      if (!isCursorVisible) {
+        gsap.to(targetCursor, { opacity: 1, duration: 0.1, overwrite: "auto" });
+        isCursorVisible = true;
+      }
     };
 
     /* Cursor Hide Handler */
     const hideCursor = () => {
-      const targetCursor = document.querySelector(".cursor-follower") as HTMLElement;
       if (targetCursor) {
-        gsap.to(targetCursor, { opacity: 0, duration: 0.1 });
+        gsap.to(targetCursor, { opacity: 0, duration: 0.1, overwrite: "auto" });
+        isCursorVisible = false;
       }
     };
 
     /* Event Delegation Hover Handlers */
-    /* Event Delegation Hover Handlers */
     const handleOver = (e: MouseEvent) => {
-      if (checkIsMobile()) return;
+      if (checkIsMobile() || !targetCursor) return;
 
-      const targetCursor = document.querySelector(".cursor-follower") as HTMLElement;
       const target = (e.target as HTMLElement).closest("a, button, .magnetic-target");
 
-      if (target && targetCursor) {
-        /* Cek jika kursor menyentuh kartu portfolio utama */
+      if (target) {
         if (target.classList.contains("work-link-wrapper")) {
-          gsap.to(targetCursor, { scale: 1.5, opacity: 0.4, duration: 0.3 });
+          gsap.to(targetCursor, { scale: 1.5, opacity: 0.4, duration: 0.3, overwrite: "auto" });
         } else {
-          /* Skala balon besar untuk tombol/menu kecil standar */
-          gsap.to(targetCursor, { scale: 3.5, opacity: 0.3, duration: 0.3, ease: "back.out(1.7)" });
+          gsap.to(targetCursor, { scale: 3.5, opacity: 0.3, duration: 0.3, ease: "back.out(1.7)", overwrite: "auto" });
         }
       }
     };
 
     const handleOut = (e: MouseEvent) => {
-      if (checkIsMobile()) return;
+      if (checkIsMobile() || !targetCursor) return;
 
-      const targetCursor = document.querySelector(".cursor-follower") as HTMLElement;
       const target = (e.target as HTMLElement).closest("a, button, .magnetic-target");
-      if (target && targetCursor) {
-        gsap.to(targetCursor, { scale: 1, opacity: 1, duration: 0.3 });
+      if (target) {
+        gsap.to(targetCursor, { scale: 1, opacity: 1, duration: 0.3, overwrite: "auto" });
       }
     };
 
