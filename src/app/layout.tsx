@@ -4,20 +4,21 @@ import ClientWrapper from "./components/ClientWrapper";
 import { Inter } from "next/font/google";
 
 export const metadata: Metadata = {
-  title: "IZER | Portfolio", // Judul utama tab browser
+  metadataBase: new URL("https://izerworks.my.id"),
+
+  title: "IZER | Portfolio",
   description: "Portfolio digital IZER. Memadukan kepemimpinan manajerial dengan presisi teknis di bidang IT Programming, Graphic Design, dan Media Production.",
   keywords: ["IZER", "Portfolio", "Web Developer", "IT Programming", "Graphic Design", "Ex-Ketua OSIS"],
   authors: [{ name: "Rezi" }],
 
-  /* Open Graph (Pratinjau link pas di-share ke WhatsApp, Discord, atau sosmed) */
   openGraph: {
     title: "IZER | Portfolio",
     description: "Crafting Digital Solutions with Creative Edge.",
-    url: "https://izerworks.my.id", // Ganti dengan domain asli lo nanti pas udah hosting
+    url: "https://izerworks.my.id",
     siteName: "IZER Portfolio",
     images: [
       {
-        url: "./public/Resources/logo-full.svg", // Taruh file gambar preview di folder public/
+        url: "/Resources/thumbnail-sharing.png",
         width: 1200,
         height: 630,
         alt: "IZER Portfolio Preview Image",
