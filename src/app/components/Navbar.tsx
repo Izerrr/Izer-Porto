@@ -87,8 +87,8 @@ export default function Navbar() {
     <>
       <nav className="glass-navbar">
         <a href="#hero" onClick={(e) => handleNavClick(e, "hero")} className="logo-container magnetic-target">
-          <img src="/Resources/logo-dark.svg" alt="IZR" className="nav-logo logo-dark" />
-          <img src="/Resources/logo-light.svg" alt="IZR" className="nav-logo logo-light" />
+          <img src="/Resources/Logo/logo-dark.svg" alt="IZR" className="nav-logo logo-dark" />
+          <img src="/Resources/Logo/logo-light.svg" alt="IZR" className="nav-logo logo-light" />
         </a>
 
         <ul className="nav-links">

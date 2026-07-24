@@ -75,7 +75,7 @@ export default function Hero() {
         <div className="hero-watermark-wrapper">
           <h1 className="hero-watermark">IZER</h1>
         </div>
-        <img src="/Resources/hero.svg" alt="Rayhan Rezi" className="hero-photo parallax-img" />
+        <img src="/Resources/Hero/hero.svg" alt="Rayhan Rezi" className="hero-photo parallax-img" />
       </div>
 
       <div className="hero-branding scroll-reveal">
