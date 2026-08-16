@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+gsap.registerPlugin(ScrollTrigger);
 
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
