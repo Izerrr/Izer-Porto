@@ -556,6 +556,9 @@ body.light-mode .hero-photo {
   font-weight: 400;
 }
 .skills-icons-wrapper {
+  overflow: hidden !important;
+  width: 100%;
+  max-width: 100%;
   margin-top: 1.5rem;
   padding: 2rem;
   text-align: center;
@@ -585,6 +588,21 @@ body.light-mode .hero-photo {
 }
 .tech-icon:hover {
   filter: grayscale(0%) opacity(1);
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-25%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 30s linear infinite;
 }
 
 /* Experience Section */

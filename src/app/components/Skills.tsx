@@ -57,18 +57,24 @@ export default function Skills() {
         )}
       </div>
 
-      {/* --- TOOLS & TECH DYNAMIC WRAPPER --- */}
-      <div className="skills-icons-wrapper glass-card">
+      {/* --- TOOLS & TECH DYNAMIC MARQUEE WRAPPER --- */}
+      <div className="skills-icons-wrapper glass-card w-full max-w-full overflow-hidden min-w-0 relative">
         <p className="icons-title">Tools & Technologies</p>
-        <div className="icons-flex">
-          {loading ? (
-            <p style={{ opacity: 0.4, fontSize: "0.8rem" }}>Loading assets...</p>
-          ) : techIcons.length > 0 ? (
-            techIcons.map((icon, idx) => <img key={icon.id || idx} src={icon.image_url} alt={icon.title || "Tech Icon"} className="tech-icon" />)
-          ) : (
-            <p style={{ opacity: 0.4, fontSize: "0.8rem" }}>Belum ada icon di gudang admin.</p>
-          )}
-        </div>
+
+        {loading ? (
+          <p style={{ opacity: 0.4, fontSize: "0.8rem", textAlign: "center" }}>Loading assets...</p>
+        ) : techIcons.length > 0 ? (
+          /* Track Marquee with Masking Fade */
+          <div className="w-full overflow-hidden relative [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+            <div className="animate-marquee flex gap-6 items-center whitespace-nowrap hover:[animation-play-state:paused] py-2">
+              {[...techIcons, ...techIcons, ...techIcons, ...techIcons].map((icon, idx) => (
+                <img key={`${icon.id || idx}-${idx}`} src={icon.image_url} alt={icon.title || "Tech Icon"} className="tech-icon shrink-0" />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p style={{ opacity: 0.4, fontSize: "0.8rem", textAlign: "center" }}>Belum ada icon di gudang admin.</p>
+        )}
       </div>
     </section>
   );
