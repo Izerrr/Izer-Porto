@@ -15,7 +15,7 @@ export default function Footer() {
           <a href="https://instagram.com/rayizerrr/" className="magnetic-target">
             Instagram
           </a>
-          <a href="https://linkedin.com/rayhan-fahrezi-setiawan/" className="magnetic-target">
+          <a href="https://linkedin.com/in/rayhan-fahrezi-setiawan/" className="magnetic-target">
             LinkedIn
           </a>
           <a href="https://github.com/Izerrr/" className="magnetic-target">
