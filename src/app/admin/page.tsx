@@ -8,6 +8,7 @@ interface PortfolioItem {
   title: string;
   description: string;
   category: string;
+  project_category?: string;
   date_range?: string;
   image_url?: string;
   project_url?: string;
@@ -17,7 +18,6 @@ interface PortfolioItem {
 export default function AdminPage() {
   const router = useRouter();
 
-  // State
   const [selectedCategory, setSelectedCategory] = useState("works");
   const [dataList, setDataList] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,6 +28,7 @@ export default function AdminPage() {
     title: "",
     description: "",
     category: "works",
+    project_category: "Web Development",
     date_range: "",
     image_url: "",
     project_url: "",
@@ -69,7 +70,17 @@ export default function AdminPage() {
 
   useEffect(() => {
     fetchData();
-    setForm({ id: null, title: "", description: "", category: selectedCategory, date_range: "", image_url: "", project_url: "", video_url: "" });
+    setForm({
+      id: null,
+      title: "",
+      description: "",
+      category: selectedCategory,
+      project_category: "Web Development",
+      date_range: "",
+      image_url: "",
+      project_url: "",
+      video_url: "",
+    });
   }, [selectedCategory, fetchData]);
 
   // Auto detect image/preview from URL
@@ -129,13 +140,27 @@ export default function AdminPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ ...form, category: selectedCategory }),
+        body: JSON.stringify({
+          ...form,
+          category: selectedCategory,
+          project_category: form.project_category || "Web Development",
+        }),
       });
 
       const result = await res.json();
       if (result.status === "success") {
         alert(result.message);
-        setForm({ id: null, title: "", description: "", category: selectedCategory, date_range: "", image_url: "", project_url: "", video_url: "" });
+        setForm({
+          id: null,
+          title: "",
+          description: "",
+          category: selectedCategory,
+          project_category: "Web Development",
+          date_range: "",
+          image_url: "",
+          project_url: "",
+          video_url: "",
+        });
         fetchData();
       } else {
         alert("Failed: " + result.message);
@@ -149,7 +174,7 @@ export default function AdminPage() {
 
   // Delete data
   const deleteData = async (id: number) => {
-    if (confirm(`Delete this item?`)) {
+    if (confirm("Delete this item?")) {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/delete_data.php`, {
           method: "POST",
@@ -158,7 +183,11 @@ export default function AdminPage() {
           body: JSON.stringify({ id, category: selectedCategory }),
         });
         const result = await res.json();
-        if (result.status === "success") fetchData();
+        if (result.status === "success") {
+          fetchData();
+        } else {
+          alert(result.message || "Delete failed");
+        }
       } catch (error) {
         console.error("Delete failed:", error);
       }
@@ -171,6 +200,7 @@ export default function AdminPage() {
       title: item.title || "",
       description: item.description || item.content || "",
       category: selectedCategory,
+      project_category: item.category && item.category !== "works" ? item.category : "Web Development",
       date_range: item.date_range || "",
       image_url: item.image_url || "",
       project_url: item.project_url || "",
@@ -233,6 +263,28 @@ export default function AdminPage() {
                   required={selectedCategory !== "about_images"}
                 />
               )}
+
+              {selectedCategory === "works" && (
+                <div>
+                  <input
+                    type="text"
+                    list="work-categories"
+                    placeholder="Project Category / Tag (e.g. Web Development, Video Production)"
+                    className="glass-card"
+                    style={{ padding: "1rem", color: "inherit", width: "100%", boxSizing: "border-box" }}
+                    value={form.project_category || ""}
+                    onChange={(e) => setForm({ ...form, project_category: e.target.value })}
+                    required
+                  />
+                  <datalist id="work-categories">
+                    <option value="Web Development" />
+                    <option value="Creative & Branding" />
+                    <option value="Video Production" />
+                    <option value="Graphic Design" />
+                  </datalist>
+                </div>
+              )}
+
               {["experience", "education"].includes(selectedCategory) && (
                 <input
                   type="text"
@@ -318,7 +370,7 @@ export default function AdminPage() {
                               <video src={form.video_url} controls style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                             )
                           ) : form.project_url && !(form.project_url.includes("github.com") || form.project_url.includes("behance.net") || form.project_url.includes("google.com")) ? (
-                            <iframe src={form.project_url} style={{ width: "100%", height: "100%", border: "none", background: "#fff" }} sandbox="allow-scripts allow-same-origin" />
+                            <iframe src={form.project_url} style={{ width: "100%", height: "100%", border: "none", background: "#fff" }} sandbox="allow-scripts" />
                           ) : (
                             <img src={form.image_url || "/placeholder.jpg"} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                           )}
@@ -338,7 +390,19 @@ export default function AdminPage() {
               {form.id && (
                 <button
                   type="button"
-                  onClick={() => setForm({ id: null, title: "", description: "", category: selectedCategory, date_range: "", image_url: "", project_url: "", video_url: "" })}
+                  onClick={() =>
+                    setForm({
+                      id: null,
+                      title: "",
+                      description: "",
+                      category: selectedCategory,
+                      project_category: "Web Development",
+                      date_range: "",
+                      image_url: "",
+                      project_url: "",
+                      video_url: "",
+                    })
+                  }
                   style={{ background: "none", color: "#ff4d4d", border: "none", fontSize: "0.8rem", cursor: "pointer", width: "100%", textAlign: "center" }}
                 >
                   CANCEL EDIT
@@ -360,7 +424,9 @@ export default function AdminPage() {
                   >
                     <div style={{ overflow: "hidden", marginRight: "0.75rem", flex: 1 }}>
                       <p style={{ fontSize: "0.85rem", fontWeight: "600", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>{selectedCategory === "about_images" ? item.image_url : item.title}</p>
-                      <p style={{ fontSize: "0.7rem", opacity: 0.4 }}>ID: {item.id}</p>
+                      <p style={{ fontSize: "0.7rem", opacity: 0.45 }}>
+                        ID: {item.id} {selectedCategory === "works" && item.category ? `• ${item.category}` : ""}
+                      </p>
                     </div>
                     <div style={{ display: "flex", gap: "0.75rem", flexShrink: 0 }}>
                       <button onClick={() => handleEdit(item)} className="magnetic-target" style={{ color: "#4da6ff", background: "none", border: "none", cursor: "pointer", fontSize: "0.8rem", fontWeight: "700" }}>

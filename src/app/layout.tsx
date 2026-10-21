@@ -42,14 +42,13 @@ const inter = Inter({
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      {/*  Gabungkan inter.variable dan class loading bawaan */}
-      <body className={`${inter.variable} loading`}>
-        {/* Visual global statis  */}
+      <body className={inter.variable}>
+        {/* Visual global statis */}
         <div className="cursor-follower"></div>
         <div className="ambient-glow"></div>
         <div className="scroll-progress"></div>
 
-        {/* Wrapper komponen client  */}
+        {/* Wrapper komponen client */}
         <ClientWrapper>{children}</ClientWrapper>
       </body>
     </html>

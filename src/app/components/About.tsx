@@ -6,9 +6,11 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
 
 export default function About() {
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<string[]>([
+    "/Resources/About_Image/profile5.webp",
+    "/Resources/About_Image/profile6.webp",
+  ]);
   const [imgIndex, setImgIndex] = useState(0);
-  const [isMounted, setIsMounted] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
 
   const [aboutText, setAboutText] = useState<string>(
@@ -17,19 +19,18 @@ export default function About() {
 
   const paragraphs = aboutText.split("\n\n");
 
-  /* 1. Fetch Data Only (Runs Once) */
+  /* 1. Fetch Dynamic Data from Backend */
   useEffect(() => {
-    setIsMounted(true);
-
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/about.php`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
           setImages(data);
+          setImgIndex(0);
         }
         setTimeout(() => {
           ScrollTrigger.refresh();
-        }, 500);
+        }, 400);
       })
       .catch((err) => console.error("Gagal ambil foto About:", err));
 
@@ -45,44 +46,14 @@ export default function About() {
 
   /* 2. Isolated Slider Timer */
   useEffect(() => {
-    if (!isMounted || images.length <= 1) return;
+    if (images.length <= 1) return;
 
     const interval = setInterval(() => {
       setImgIndex((prev) => (prev + 1) % images.length);
-    }, 4000);
+    }, 4500);
 
     return () => clearInterval(interval);
-  }, [images.length, isMounted]);
-
-  /* 3. GSAP Kinetic Reveal Animation */
-  useEffect(() => {
-    if (!isMounted) return;
-    let ctx = gsap.context(() => {
-      const title = document.querySelector("#about .kinetic-reveal");
-      if (title && !title.getAttribute("data-activated")) {
-        const text = title.textContent || "";
-        title.innerHTML = "";
-        [...text].forEach((char) => {
-          const span = document.createElement("span");
-          span.textContent = char === " " ? "\u00A0" : char;
-          span.style.display = "inline-block";
-          title.appendChild(span);
-        });
-        title.setAttribute("data-activated", "true");
-
-        gsap.from(title.querySelectorAll("span"), {
-          scrollTrigger: { trigger: title, start: "top 85%" },
-          y: 30,
-          opacity: 0,
-          filter: "blur(5px)",
-          stagger: 0.02,
-          duration: 0.8,
-          ease: "power3.out",
-        });
-      }
-    }, sectionRef);
-    return () => ctx.revert();
-  }, [isMounted]);
+  }, [images.length]);
 
   return (
     <section id="about" className="section-container" ref={sectionRef} style={{ minHeight: "60vh" }}>
@@ -90,35 +61,43 @@ export default function About() {
         <h2 className="section-title kinetic-reveal">About Me.</h2>
       </div>
 
-      {isMounted && (
-        <div className="glass-card about-combined">
-          <div className="about-text">
-            <h3 className="elegant-heading-small">Get to Know Me!</h3>
-            <p>{paragraphs[0] || "\u00A0"}</p>
-            <p>{paragraphs[1] || "\u00A0"}</p>
-          </div>
-
-          {/* Wadah Visual Bersih Terkalibrasi */}
-          <div className="about-visual-wrapper">
-            {images.length > 0 ? (
-              images.map((src, idx) => (
-                <img
-                  key={idx}
-                  src={src}
-                  alt={`Profile ${idx + 1}`}
-                  className={`about-img ${idx === imgIndex ? "active" : ""}`}
-                  style={{
-                    opacity: idx === imgIndex ? 1 : 0,
-                    zIndex: idx === imgIndex ? 2 : 1,
-                  }}
-                />
-              ))
-            ) : (
-              <div style={{ width: "100%", height: "100%", background: "var(--bg-surface)" }}></div>
-            )}
-          </div>
+      <div className="glass-card about-combined">
+        <div className="about-text">
+          <h3 className="elegant-heading-small">Get to Know Me!</h3>
+          <p>{paragraphs[0] || "\u00A0"}</p>
+          <p>{paragraphs[1] || "\u00A0"}</p>
         </div>
-      )}
+
+        {/* Wadah Visual Bersih Terkalibrasi */}
+        <div className="about-visual-wrapper">
+          {images.map((src, idx) => (
+            <img
+              key={`${src}-${idx}`}
+              src={src}
+              alt={`Rayhan Fahrezi Setiawan Profile ${idx + 1}`}
+              className={`about-img ${idx === imgIndex ? "active" : ""}`}
+              style={{
+                opacity: idx === imgIndex ? 1 : 0,
+                zIndex: idx === imgIndex ? 2 : 1,
+              }}
+            />
+          ))}
+
+          {images.length > 1 && (
+            <div className="about-slider-dots">
+              {images.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setImgIndex(idx)}
+                  className={`slider-dot ${idx === imgIndex ? "active" : ""}`}
+                  aria-label={`View photo ${idx + 1}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </section>
   );
 }

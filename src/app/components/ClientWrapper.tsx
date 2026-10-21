@@ -8,79 +8,81 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function ClientWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    /* Lenis Smooth Scroll Engine Setup */
-    const lenis = new Lenis({ lerp: 0.1 });
+    /* 1. Lenis Smooth Scroll Engine synced with GSAP Ticker */
+    const lenis = new Lenis({
+      duration: 1.15,
+      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      touchMultiplier: 1.5,
+    });
     lenis.on("scroll", ScrollTrigger.update);
 
-    function raf(time: number) {
-      lenis.raf(time);
-      requestAnimationFrame(raf);
-    }
-    requestAnimationFrame(raf);
+    const updateLenis = (time: number) => {
+      lenis.raf(time * 1000);
+    };
+    gsap.ticker.add(updateLenis);
+    gsap.ticker.lagSmoothing(0);
 
-    const handleScroll = (e: any) => lenis.scrollTo(e.detail, { duration: 1.5 });
+    const handleScroll = (e: any) => lenis.scrollTo(e.detail, { duration: 1.4 });
     window.addEventListener("lenis-scroll", handleScroll);
 
-    /* Device Detection Blocker */
-    const checkIsMobile = () => {
-      return window.innerWidth <= 768 || "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    /* 2. Accurate Pointer Detection (Avoid false positives on touchscreen laptops) */
+    const checkIsTouchOnly = () => {
+      return window.matchMedia("(hover: none), (pointer: coarse)").matches;
     };
 
-    /* 💡 CACHE DOM ELEMENT ONCE (Fix High CPU Load) */
     const targetCursor = document.querySelector(".cursor-follower") as HTMLElement;
 
-    /* 💡 GSAP QUICKTO INITIALIZATION (Fix Solitaire Artifacting / Ghosting) */
     let xTo: ((value: number) => void) | null = null;
     let yTo: ((value: number) => void) | null = null;
 
     if (targetCursor) {
-      // Force GPU Rendering Layer to avoid repaint trails
-      gsap.set(targetCursor, { opacity: 0, force3D: true });
+      // Center follower on cursor tip and force GPU compositing
+      gsap.set(targetCursor, { opacity: 0, xPercent: -50, yPercent: -50, force3D: true });
 
-      // Highly-optimized quick setters for high polling rate / virtual mice
-      xTo = gsap.quickTo(targetCursor, "x", { duration: 0.15, ease: "power2.out" });
-      yTo = gsap.quickTo(targetCursor, "y", { duration: 0.15, ease: "power2.out" });
+      xTo = gsap.quickTo(targetCursor, "x", { duration: 0.12, ease: "power2.out" });
+      yTo = gsap.quickTo(targetCursor, "y", { duration: 0.12, ease: "power2.out" });
     }
 
     let isCursorVisible = false;
 
-    /* Cursor Movement Handler */
     const moveCursor = (e: MouseEvent) => {
-      if (!targetCursor || checkIsMobile()) {
+      if (!targetCursor || checkIsTouchOnly()) {
         if (targetCursor) gsap.set(targetCursor, { opacity: 0 });
         return;
       }
 
-      // Update position via ultra-fast quickTo
       if (xTo && yTo) {
         xTo(e.clientX);
         yTo(e.clientY);
       }
 
-      // Smooth fade in once cursor moves
       if (!isCursorVisible) {
-        gsap.to(targetCursor, { opacity: 1, duration: 0.1, overwrite: "auto" });
+        gsap.to(targetCursor, { opacity: 1, duration: 0.15, overwrite: "auto" });
         isCursorVisible = true;
       }
     };
 
-    /* Cursor Hide Handler */
     const hideCursor = () => {
       if (targetCursor) {
-        gsap.to(targetCursor, { opacity: 0, duration: 0.1, overwrite: "auto" });
+        gsap.to(targetCursor, { opacity: 0, duration: 0.15, overwrite: "auto" });
         isCursorVisible = false;
       }
     };
 
-    /* Event Delegation Hover Handlers */
     const handleOver = (e: MouseEvent) => {
-      if (checkIsMobile() || !targetCursor) return;
+      if (checkIsTouchOnly() || !targetCursor) return;
 
-      const target = (e.target as HTMLElement).closest("a, button, .magnetic-target");
+      const el = e.target as HTMLElement;
+      if (el.closest("input, textarea")) {
+        gsap.to(targetCursor, { scale: 0.3, opacity: 0.2, duration: 0.2, overwrite: "auto" });
+        return;
+      }
 
+      const target = el.closest("a, button, .magnetic-target");
       if (target) {
         if (target.classList.contains("work-link-wrapper")) {
-          gsap.to(targetCursor, { scale: 1.5, opacity: 0.4, duration: 0.3, overwrite: "auto" });
+          gsap.to(targetCursor, { scale: 2.2, opacity: 0.4, duration: 0.3, overwrite: "auto" });
         } else {
           gsap.to(targetCursor, { scale: 3.5, opacity: 0.3, duration: 0.3, ease: "back.out(1.7)", overwrite: "auto" });
         }
@@ -88,15 +90,15 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
     };
 
     const handleOut = (e: MouseEvent) => {
-      if (checkIsMobile() || !targetCursor) return;
+      if (checkIsTouchOnly() || !targetCursor) return;
 
-      const target = (e.target as HTMLElement).closest("a, button, .magnetic-target");
+      const target = (e.target as HTMLElement).closest("a, button, .magnetic-target, input, textarea");
       if (target) {
         gsap.to(targetCursor, { scale: 1, opacity: 1, duration: 0.3, overwrite: "auto" });
       }
     };
 
-    /* Scroll Progress Bar Tracking */
+    /* 3. Scroll Progress Bar Tracking */
     const progressAnimation = gsap.to(".scroll-progress", {
       scaleX: 1,
       ease: "none",
@@ -104,18 +106,16 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
         trigger: "body",
         start: "top top",
         end: "bottom bottom",
-        scrub: 0.3,
+        scrub: 0.2,
       },
     });
 
-    /* Event Listeners Initialization */
-    window.addEventListener("mousemove", moveCursor);
+    window.addEventListener("mousemove", moveCursor, { passive: true });
     document.addEventListener("mouseleave", hideCursor);
-    window.addEventListener("touchstart", hideCursor);
-    window.addEventListener("mouseover", handleOver);
-    window.addEventListener("mouseout", handleOut);
+    window.addEventListener("touchstart", hideCursor, { passive: true });
+    window.addEventListener("mouseover", handleOver, { passive: true });
+    window.addEventListener("mouseout", handleOut, { passive: true });
 
-    /* Garbage Collection and Memory Cleanup */
     return () => {
       window.removeEventListener("lenis-scroll", handleScroll);
       window.removeEventListener("mousemove", moveCursor);
@@ -124,9 +124,10 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
       window.removeEventListener("mouseover", handleOver);
       window.removeEventListener("mouseout", handleOut);
 
+      gsap.ticker.remove(updateLenis);
       lenis.destroy();
       progressAnimation.scrollTrigger?.kill();
-      ScrollTrigger.getAll().forEach((t) => t.kill());
+      progressAnimation.kill();
     };
   }, []);
 

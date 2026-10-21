@@ -70,6 +70,25 @@ button,
   cursor: none;
 }
 
+input,
+textarea {
+  cursor: text !important;
+}
+
+@media (hover: none), (pointer: coarse) {
+  html,
+  body,
+  a,
+  button,
+  .nav-item,
+  .hamburger {
+    cursor: auto !important;
+  }
+  .cursor-follower {
+    display: none !important;
+  }
+}
+
 /* Background Grids */
 .tech-grid {
   position: absolute;
@@ -169,6 +188,32 @@ nav {
   transform: scale(1.03);
 }
 
+.btn-copy-email {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-bg);
+  color: var(--text-main);
+  border: 1px solid var(--glass-border);
+  padding: 0.9rem 1.8rem;
+  border-radius: 40px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+.btn-copy-email:hover {
+  border-color: var(--text-main);
+  transform: scale(1.03);
+}
+
+.btn-copy-email.copied {
+  border-color: #4ade80;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.08);
+}
+
 .section-container {
   max-width: 1000px;
   margin: 0 auto;
@@ -187,12 +232,12 @@ nav {
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 3rem);
-  max-width: 700px;
+  max-width: 780px;
   background: var(--glass-bg);
   backdrop-filter: blur(25px) saturate(100%);
   border: 1px solid var(--glass-border);
   border-radius: 50px;
-  padding: 0.7rem 2rem;
+  padding: 0.7rem 1.8rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -221,7 +266,7 @@ body.light-mode .logo-light {
 
 .nav-links {
   display: flex;
-  gap: 2rem;
+  gap: 1.8rem;
   list-style: none;
 }
 
@@ -261,7 +306,37 @@ body.light-mode .logo-light {
 .nav-controls {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1rem;
+}
+
+.nav-resume-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-main);
+  text-decoration: none;
+  padding: 0.4rem 0.9rem;
+  border-radius: 30px;
+  border: 1px solid var(--glass-border);
+  background: rgba(128, 128, 128, 0.06);
+  transition: all 0.3s ease;
+}
+
+.nav-resume-btn:hover {
+  border-color: var(--text-main);
+  background: var(--text-main);
+  color: var(--bg-midnight);
+}
+
+.resume-arrow {
+  font-size: 0.75rem;
+  transition: transform 0.25s ease;
+}
+
+.nav-resume-btn:hover .resume-arrow {
+  transform: translate(1px, -1px);
 }
 
 .theme-btn {
@@ -317,7 +392,7 @@ body.light-mode .logo-light {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  margin-bottom: 3rem;
+  margin-bottom: 2.5rem;
   background-color: var(--glass-bg);
   background-image: linear-gradient(rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02));
   backdrop-filter: blur(25px);
@@ -368,6 +443,46 @@ body.light-mode .hero-photo {
   width: 100%;
   padding-bottom: 3rem;
 }
+
+/* Live Availability & Timezone Pill */
+.availability-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.38rem 1rem;
+  border-radius: 30px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  margin-bottom: 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  animation: statusPulse 2.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.88);
+  }
+}
+
 .hero-name {
   font-size: clamp(2rem, 5vw, 3rem);
   font-weight: 600;
@@ -419,6 +534,12 @@ body.light-mode .hero-photo {
   opacity: 0.8;
   animation: floatBounce 2.5s ease-in-out infinite;
   z-index: 10;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.3s ease;
+}
+.scroll-indicator:hover {
+  opacity: 1;
 }
 .mouse-icon {
   width: 22px;
@@ -515,6 +636,36 @@ body.light-mode .hero-photo {
   transform: scale(1.05);
 }
 
+.about-slider-dots {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+}
+
+.slider-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.35);
+  transition: all 0.3s ease;
+  padding: 0;
+}
+
+.slider-dot.active {
+  width: 20px;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
 /* Skills Grid */
 .skills-grid {
   display: grid;
@@ -559,6 +710,8 @@ body.light-mode .hero-photo {
   overflow: hidden !important;
   width: 100%;
   max-width: 100%;
+  min-width: 0;
+  position: relative;
   margin-top: 1.5rem;
   padding: 2rem;
   text-align: center;
@@ -579,15 +732,27 @@ body.light-mode .hero-photo {
   gap: 2rem;
 }
 
+.marquee-track {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+
 .tech-icon {
   width: 50px;
   height: 50px;
   object-fit: contain;
+  flex-shrink: 0;
   filter: grayscale(100%) opacity(0.5);
-  transition: filter 0.4s ease;
+  transition:
+    filter 0.4s ease,
+    transform 0.3s ease;
 }
 .tech-icon:hover {
   filter: grayscale(0%) opacity(1);
+  transform: scale(1.1);
 }
 
 @keyframes marquee {
@@ -601,8 +766,16 @@ body.light-mode .hero-photo {
 
 .animate-marquee {
   display: flex;
+  gap: 2.5rem;
+  align-items: center;
+  white-space: nowrap;
   width: max-content;
+  padding: 0.5rem 0;
   animation: marquee 30s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
 }
 
 /* Experience Section */
@@ -612,9 +785,10 @@ body.light-mode .hero-photo {
 .exp-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 3rem 1rem;
+  align-items: flex-start;
+  padding: 2.5rem 1rem;
   border-bottom: 1px solid var(--glass-border);
+  will-change: transform, opacity;
   transition:
     background 0.4s ease,
     padding 0.4s ease;
@@ -638,7 +812,7 @@ body.light-mode .hero-photo {
 }
 .exp-right {
   flex: 1;
-  max-width: 400px;
+  max-width: 420px;
   text-align: right;
   color: var(--text-dim);
   font-weight: 400;
@@ -662,6 +836,37 @@ body.light-mode .hero-photo {
   align-items: flex-end;
 }
 
+.works-filter-tabs {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.works-filter-btn {
+  background: none;
+  border: none;
+  padding-bottom: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: inherit;
+  opacity: 0.4;
+  border-bottom: 2px solid transparent;
+  transition:
+    opacity 0.3s ease,
+    border-color 0.3s ease;
+}
+
+.works-filter-btn:hover {
+  opacity: 0.75;
+}
+
+.works-filter-btn.active {
+  opacity: 1;
+  border-color: currentColor;
+}
+
 .works-horizontal-scroll {
   display: flex;
   gap: 4rem;
@@ -669,6 +874,7 @@ body.light-mode .hero-photo {
   padding: 0 8vw;
   align-items: center;
   height: 75vh;
+  user-select: none;
 }
 
 .work-link-wrapper {
@@ -688,6 +894,32 @@ body.light-mode .hero-photo {
   overflow: hidden;
   box-shadow: var(--card-shadow);
   border-radius: 32px;
+}
+
+.work-preview-badge {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 5;
+  padding: 0.45rem 1rem;
+  border-radius: 30px;
+  background: rgba(10, 17, 32, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.work-preview-badge.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .work-image-bg {
@@ -806,7 +1038,6 @@ body.light-mode .hero-photo {
   top: 0;
   left: 0;
   width: 100%;
-  /* 💥 FIXED PRELOADER MOBILE: pakai dvh biar center total gleser di HP */
   height: 100dvh;
   background-color: var(--bg-midnight);
   z-index: 100000;
@@ -954,6 +1185,10 @@ body.light-mode .cursor-follower.active {
     z-index: 10001;
   }
 
+  .nav-resume-btn {
+    display: none;
+  }
+
   .nav-item {
     position: relative;
   }
@@ -993,7 +1228,13 @@ body.light-mode .cursor-follower.active {
     overflow-y: hidden !important;
     touch-action: pan-x !important;
     -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
     padding: 0 1.5rem !important;
+  }
+
+  .work-link-wrapper {
+    scroll-snap-align: center;
   }
 
   .elegant-work-card {
@@ -1015,6 +1256,15 @@ body.light-mode .cursor-follower.active {
   .work-category {
     font-size: 0.7rem !important;
     margin-bottom: 0.25rem;
+  }
+
+  .work-preview-badge {
+    opacity: 0.9;
+    transform: translateY(0);
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.65rem;
+    padding: 0.35rem 0.75rem;
   }
 
   /* SECTION ABOUT KHUSUS MOBILE */
@@ -1092,7 +1342,7 @@ body.light-mode .cursor-follower.active {
     flex-direction: column;
     gap: 1rem;
   }
-  .mobile-nav-links a {
+  .mobile-nav-links a.mobile-nav-item {
     font-size: clamp(3rem, 12vw, 4.5rem);
     font-weight: 700;
     text-transform: uppercase;
@@ -1104,11 +1354,22 @@ body.light-mode .cursor-follower.active {
     display: inline-block;
     transition: all 0.4s ease;
   }
-  .mobile-nav-links a.active {
+  .mobile-nav-links a.mobile-nav-item.active {
     color: var(--text-main);
     text-shadow:
       0 0 20px rgba(255, 255, 255, 0.4),
       0 0 40px var(--accent-glow);
+  }
+  .mobile-resume-link {
+    display: inline-block;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    color: var(--text-main) !important;
+    text-decoration: none;
+    padding: 0.7rem 1.8rem;
+    border-radius: 40px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
   }
   .mobile-menu-badge {
     margin-top: 2rem;
@@ -1212,8 +1473,8 @@ body.light-mode .cursor-follower.active {
   .exp-row {
     flex-direction: column !important;
     align-items: flex-start !important;
-    gap: 0.75rem; /* Kasih jarak vertikal antara nama institusi dan deskripsinya */
-    padding: 2rem 0rem !important; /* Rapikan padding vertikalnya */
+    gap: 0.75rem;
+    padding: 2rem 0rem !important;
   }
 
   /* Paksa teks kiri melebar penuh */
@@ -1226,7 +1487,7 @@ body.light-mode .cursor-follower.active {
   .exp-right {
     width: 100% !important;
     max-width: 100% !important;
-    text-align: right !important; /* Di HP lebih rapi rata kiri daripada rata kanan */
+    text-align: left !important;
   }
 
   /* Override max-width 50% milik desktop tadi menjadi full se-layar HP */

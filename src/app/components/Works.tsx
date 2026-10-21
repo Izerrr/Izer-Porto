@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -16,7 +16,7 @@ interface Project {
   auto_thumbnail?: string;
 }
 
-/* Helper: Force HTTPS untuk cegah Mixed Content "Not Secure" di Instagram */
+/* Helper: Force HTTPS untuk cegah Mixed Content */
 const ensureHttps = (url: string | null | undefined): string => {
   if (!url || url.trim() === "") return "";
   return url.trim().replace(/^http:\/\//i, "https://");
@@ -25,29 +25,37 @@ const ensureHttps = (url: string | null | undefined): string => {
 /* Helper: Check embeddable live website */
 const isLiveWebsite = (url: string | null | undefined): boolean => {
   if (!url || url.trim() === "") return false;
-  const socialDomains = ["github.com", "behance.net", "instagram.com", "linkedin.com", "twitter.com", "x.com", "tiktok.com"];
+  const socialDomains = ["github.com", "behance.net", "instagram.com", "linkedin.com", "twitter.com", "x.com", "tiktok.com", "youtube.com", "youtu.be"];
   return !socialDomains.some((domain) => url.toLowerCase().includes(domain));
 };
 
+/* Helper: Check direct video file */
+const isDirectVideoFile = (url: string | null | undefined): boolean => {
+  if (!url || url.trim() === "") return false;
+  return /\.(mp4|webm|ogg|mov)($|\?)/i.test(url.trim());
+};
+
 /* Component Sub-Item per Card untuk mengelola Hover State secara terisolasi */
-function WorkCardItem({ item, setActiveProject }: { item: Project; setActiveProject: (p: Project) => void }) {
+function WorkCardItem({ item, onSelect }: { item: Project; onSelect: (p: Project) => void }) {
   const [isHovered, setIsHovered] = useState(false);
 
-  const isDirectVideo = item.video_url && (item.video_url.endsWith(".mp4") || item.video_url.endsWith(".webm") || !item.video_url.includes("youtu"));
+  const isDirectVideo = isDirectVideoFile(item.video_url);
   const canEmbedLiveIframe = isLiveWebsite(item.project_url);
+  const displayCategory = item.category && item.category.toLowerCase() !== "works" ? item.category : "Featured Project";
 
   return (
     <a
       href={item.project_url || "#"}
       target="_blank"
       rel="noopener noreferrer"
-      className="work-link-wrapper group"
+      className="work-link-wrapper"
       style={{ flexShrink: 0 }}
+      draggable={false}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={(e) => {
         e.preventDefault();
-        setActiveProject(item);
+        onSelect(item);
       }}
     >
       <div className="glass-card elegant-work-card" style={{ position: "relative", overflow: "hidden" }}>
@@ -95,7 +103,7 @@ function WorkCardItem({ item, setActiveProject }: { item: Project; setActiveProj
               }}
             />
 
-            {/* ⚡ OPTIMIZATION: Iframe CUMA di-render saat kartu di-HOVER! */}
+            {/* OPTIMIZATION: Iframe CUMA di-render saat kartu di-HOVER */}
             {canEmbedLiveIframe && isHovered && (
               <iframe
                 src={item.project_url}
@@ -115,7 +123,7 @@ function WorkCardItem({ item, setActiveProject }: { item: Project; setActiveProj
                   opacity: 1,
                   transition: "opacity 0.4s ease",
                 }}
-                sandbox="allow-scripts allow-same-origin"
+                sandbox="allow-scripts allow-forms allow-popups"
               />
             )}
           </div>
@@ -126,10 +134,15 @@ function WorkCardItem({ item, setActiveProject }: { item: Project; setActiveProj
           style={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(to bottom, rgba(5, 10, 20, 0.1), rgba(5, 10, 20, 0.75))",
+            background: "linear-gradient(to bottom, rgba(5, 10, 20, 0.15), rgba(5, 10, 20, 0.82))",
             zIndex: 3,
           }}
         />
+
+        {/* Preview Badge Cue */}
+        <div className={`work-preview-badge ${isHovered ? "visible" : ""}`}>
+          <span>Preview ↗</span>
+        </div>
 
         {/* Card Content */}
         <div
@@ -142,7 +155,7 @@ function WorkCardItem({ item, setActiveProject }: { item: Project; setActiveProj
             width: "100%",
           }}
         >
-          <span className="work-category">{item.category}</span>
+          <span className="work-category">{displayCategory}</span>
           <h3 className="elegant-heading">{item.title}</h3>
         </div>
       </div>
@@ -152,14 +165,22 @@ function WorkCardItem({ item, setActiveProject }: { item: Project; setActiveProj
 
 export default function Works() {
   const [works, setWorks] = useState<Project[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [loading, setLoading] = useState(true);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
+  const dragState = useRef({
+    isDown: false,
+    startX: 0,
+    lastX: 0,
+    movedDistance: 0,
+  });
 
-  /* Fetch data, Auto-Upgrade HTTPS, and generate thumbnails */
+  /* 1. Fetch data, Auto-Upgrade HTTPS, and generate thumbnails */
   useEffect(() => {
     setMounted(true);
 
@@ -168,10 +189,21 @@ export default function Works() {
       .then((data) => {
         if (Array.isArray(data)) {
           const processedData = data.map((item: Project) => {
-            // Force HTTPS di semua URL bawaan DB
             const projectUrl = ensureHttps(item.project_url);
             let thumb = item.image_url ? ensureHttps(item.image_url) : null;
-            let video = ensureHttps(item.video_url || null);
+            const video = ensureHttps(item.video_url || null);
+
+            // Normalize category if legacy "works" value exists
+            let cleanCategory = item.category ? item.category.trim() : "Web Development";
+            if (!cleanCategory || cleanCategory.toLowerCase() === "works") {
+              if (item.title.toLowerCase().startsWith("video") || projectUrl.includes("/reel/")) {
+                cleanCategory = "Video Production";
+              } else if (projectUrl.includes("instagram.com")) {
+                cleanCategory = "Creative & Branding";
+              } else {
+                cleanCategory = "Web Development";
+              }
+            }
 
             // 1. YouTube video thumbnail fallback
             if (video && (video.includes("youtube.com") || video.includes("youtu.be"))) {
@@ -185,13 +217,14 @@ export default function Works() {
               thumb = `https://image.thum.io/get/width/1024/crop/800/${projectUrl}`;
             }
 
-            // 3. Default image fallback
+            // 3. Default local image fallback
             if (!thumb) {
-              thumb = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe";
+              thumb = "/Resources/thumbnail-sharing.png";
             }
 
             return {
               ...item,
+              category: cleanCategory,
               project_url: projectUrl,
               image_url: thumb,
               video_url: video,
@@ -209,19 +242,36 @@ export default function Works() {
       });
   }, []);
 
-  /* GSAP Horizontal Scroll Setup */
-  useEffect(() => {
-    if (loading || works.length === 0 || !scrollRef.current || !sectionRef.current) return;
+  /* Extract Dynamic Categories from Backend Data */
+  const categories = useMemo(() => {
+    const unique = Array.from(new Set(works.map((w) => w.category).filter(Boolean)));
+    return ["All", ...unique];
+  }, [works]);
 
-    const timer = setTimeout(() => {
-      ScrollTrigger.refresh();
-    }, 100);
+  const filteredWorks = useMemo(() => {
+    if (selectedCategory === "All") return works;
+    return works.filter((w) => w.category === selectedCategory);
+  }, [works, selectedCategory]);
+
+  /* 2. GSAP Horizontal Scroll Setup */
+  useEffect(() => {
+    if (loading || filteredWorks.length === 0 || !scrollRef.current || !sectionRef.current) return;
 
     const mm = gsap.matchMedia();
 
     mm.add("(min-width: 769px)", () => {
       const scrollContainer = scrollRef.current as HTMLElement;
-      const getScrollAmount = () => -(scrollContainer.scrollWidth - window.innerWidth);
+      gsap.set(scrollContainer, { x: 0 });
+
+      const getScrollAmount = () => {
+        const diff = scrollContainer.scrollWidth - window.innerWidth;
+        return diff > 0 ? -diff : 0;
+      };
+
+      const getScrollDistance = () => {
+        const diff = scrollContainer.scrollWidth - window.innerWidth;
+        return diff > 0 ? diff : 300;
+      };
 
       gsap.to(scrollContainer, {
         x: getScrollAmount,
@@ -229,7 +279,7 @@ export default function Works() {
         scrollTrigger: {
           trigger: sectionRef.current,
           start: "top top",
-          end: () => "+=" + (scrollContainer.scrollWidth - window.innerWidth),
+          end: () => "+=" + getScrollDistance(),
           pin: true,
           scrub: 1,
           anticipatePin: 1,
@@ -238,17 +288,65 @@ export default function Works() {
       });
     });
 
+    const timer = setTimeout(() => {
+      ScrollTrigger.refresh();
+    }, 120);
+
     return () => {
       clearTimeout(timer);
       mm.revert();
     };
-  }, [loading, works]);
+  }, [loading, filteredWorks]);
 
-  /* Lock body scroll when modal is open */
+  /* 3. Desktop Mouse Grab-to-Scroll Handler */
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (window.innerWidth <= 768) return;
+    dragState.current.isDown = true;
+    dragState.current.startX = e.clientX;
+    dragState.current.lastX = e.clientX;
+    dragState.current.movedDistance = 0;
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragState.current.isDown || window.innerWidth <= 768) return;
+    const deltaX = dragState.current.lastX - e.clientX;
+    dragState.current.lastX = e.clientX;
+    dragState.current.movedDistance += Math.abs(deltaX);
+
+    if (dragState.current.movedDistance > 5) {
+      window.scrollBy({ top: deltaX * 1.4, behavior: "instant" as ScrollBehavior });
+    }
+  };
+
+  const handleMouseUpOrLeave = () => {
+    if (!dragState.current.isDown) return;
+    dragState.current.isDown = false;
+    setIsDragging(false);
+  };
+
+  const handleCardSelect = (project: Project) => {
+    if (dragState.current.movedDistance > 8) return;
+    setActiveProject(project);
+  };
+
+  /* 4. Lock body scroll & Escape key handler when modal is open */
   useEffect(() => {
     document.body.style.overflow = activeProject ? "hidden" : "";
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActiveProject(null);
+      }
+    };
+
+    if (activeProject) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+
     return () => {
       document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [activeProject]);
 
@@ -267,7 +365,6 @@ export default function Works() {
       <section
         id="works"
         ref={sectionRef}
-        className="relative w-full min-h-screen flex flex-col justify-center overflow-hidden z-10"
         style={{
           opacity: loading ? 0.3 : 1,
           transition: "opacity 0.4s",
@@ -279,19 +376,41 @@ export default function Works() {
           style={{
             width: "100%",
             display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
             justifyContent: "center",
-            marginBottom: "2rem",
+            marginBottom: "1.5rem",
+            padding: "0 1.5rem",
           }}
         >
-          <div className="section-header works-header" style={{ textAlign: "center", marginBottom: 0 }}>
+          <div className="section-header works-header" style={{ textAlign: "center", marginBottom: "1rem" }}>
             <h2 className="section-title kinetic-reveal" style={{ margin: 0 }}>
               Selected Works.
             </h2>
           </div>
+
+          {/* Dynamic Category Filter Tabs */}
+          {categories.length > 1 && (
+            <div className="works-filter-tabs">
+              {categories.map((cat) => (
+                <button key={cat} type="button" onClick={() => setSelectedCategory(cat)} className={`works-filter-btn magnetic-target ${selectedCategory === cat ? "active" : ""}`}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="works-horizontal-scroll" ref={scrollRef} style={{ display: "flex", flexWrap: "nowrap" }}>
-          {loading ? <p style={{ color: "white", padding: "5vw" }}>Loading...</p> : works.map((item) => <WorkCardItem key={item.id} item={item} setActiveProject={setActiveProject} />)}
+        <div
+          className={`works-horizontal-scroll ${isDragging ? "dragging" : ""}`}
+          ref={scrollRef}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUpOrLeave}
+          onMouseLeave={handleMouseUpOrLeave}
+          style={{ display: "flex", flexWrap: "nowrap" }}
+        >
+          {loading ? <p style={{ color: "var(--text-dim)", padding: "5vw" }}>Loading works...</p> : filteredWorks.map((item) => <WorkCardItem key={item.id} item={item} onSelect={handleCardSelect} />)}
         </div>
       </section>
 
@@ -299,12 +418,16 @@ export default function Works() {
       {mounted &&
         createPortal(
           <div
+            className={`works-modal-backdrop ${activeProject ? "open" : ""}`}
             style={{
               position: "fixed",
               inset: 0,
               zIndex: 99999,
-              display: activeProject ? "flex" : "none",
-              background: "rgba(0, 0, 0, 0.9)",
+              pointerEvents: activeProject ? "auto" : "none",
+              opacity: activeProject ? 1 : 0,
+              transition: "opacity 0.3s ease",
+              display: "flex",
+              background: "rgba(0, 0, 0, 0.88)",
               backdropFilter: "blur(20px)",
               padding: "clamp(1rem, 3vw, 2rem)",
             }}
@@ -318,8 +441,8 @@ export default function Works() {
                   width: "100%",
                   maxWidth: "1000px",
                   borderRadius: "20px",
-                  background: "rgba(10, 10, 10, 0.8)",
-                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  background: "rgba(10, 10, 10, 0.88)",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
                   overflow: "hidden",
                   color: "#fff",
                   boxShadow: "0 30px 60px -12px rgba(0,0,0,0.8)",
@@ -328,23 +451,33 @@ export default function Works() {
               >
                 <div
                   style={{
-                    padding: "1.5rem 2rem",
+                    padding: "1.25rem 2rem",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    borderBottom: "1px solid rgba(255,255,255,0.08)",
                   }}
                 >
-                  <h2 style={{ fontSize: "1.3rem", fontWeight: "600" }}>{activeProject.title}</h2>
+                  <div>
+                    <span style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.5, display: "block", marginBottom: "0.2rem" }}>{activeProject.category}</span>
+                    <h2 style={{ fontSize: "1.25rem", fontWeight: "600", margin: 0 }}>{activeProject.title}</h2>
+                  </div>
                   <button
+                    type="button"
                     onClick={() => setActiveProject(null)}
+                    aria-label="Close preview modal"
                     style={{
-                      background: "none",
-                      border: "none",
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: "50%",
+                      width: "36px",
+                      height: "36px",
                       color: "inherit",
-                      fontSize: "1.5rem",
+                      fontSize: "1.1rem",
                       cursor: "pointer",
-                      opacity: 0.5,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
                     ✕
@@ -380,7 +513,7 @@ export default function Works() {
                         }}
                       />
                     )
-                  ) : isLiveWebsite(activeProject.project_url) ? (
+                  ) : isLiveWebsite(activeProject.project_url) || activeProject.project_url.includes("/embed") ? (
                     <iframe
                       src={activeProject.project_url}
                       title={activeProject.title}
@@ -394,7 +527,7 @@ export default function Works() {
                     />
                   ) : (
                     <img
-                      src={activeProject.auto_thumbnail || activeProject.image_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe"}
+                      src={activeProject.auto_thumbnail || activeProject.image_url || "/Resources/thumbnail-sharing.png"}
                       alt={activeProject.title}
                       style={{
                         width: "100%",
@@ -409,22 +542,24 @@ export default function Works() {
                   style={{
                     padding: "1.2rem 2rem",
                     display: "flex",
-                    justifyContent: "flex-end",
-                    background: "rgba(0,0,0,0.3)",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    background: "rgba(0,0,0,0.4)",
                   }}
                 >
+                  <span style={{ fontSize: "0.75rem", opacity: 0.45 }}>Press ESC to close</span>
                   <a
-                    href={activeProject.project_url}
+                    href={activeProject.project_url.replace(/\/embed\/?$/, "/")}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
                       color: "#fff",
                       textDecoration: "none",
-                      background: "rgba(255,255,255,0.08)",
+                      background: "rgba(255,255,255,0.1)",
                       padding: "0.6rem 1.5rem",
                       borderRadius: "6px",
                       fontSize: "0.85rem",
-                      border: "1px solid rgba(255,255,255,0.1)",
+                      border: "1px solid rgba(255,255,255,0.15)",
                       fontWeight: "600",
                     }}
                   >

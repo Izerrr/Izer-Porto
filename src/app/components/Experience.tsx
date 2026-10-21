@@ -10,10 +10,10 @@ export default function Experience() {
   const [experienceData, setExperienceData] = useState<any[]>([]);
   const [educationData, setEducationData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const sectionRef = useRef(null);
+  const sectionRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // 1. FETCH DATA PARAREL (Careers & Education)
+  // 1. FETCH DATA PARALLEL (Careers & Education)
   useEffect(() => {
     const fetchExp = fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=experience`)
       .then((res) => res.json())
@@ -34,30 +34,34 @@ export default function Experience() {
     });
   }, []);
 
-  // 2. ANIMASI SWITCH TOGGLE (GSAP STAGGER)
+  // 2. ANIMASI SWITCH TOGGLE & SCROLL REVEAL (GSAP STAGGER)
   useEffect(() => {
     if (loading || !listRef.current) return;
 
-    const items = listRef.current.querySelectorAll(".experience-item");
+    const ctx = gsap.context(() => {
+      const items = listRef.current?.querySelectorAll(".experience-item");
 
-    if (items.length > 0) {
-      gsap.fromTo(
-        items,
-        { opacity: 0, y: 25 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          stagger: 0.08,
-          ease: "power2.out",
-          onComplete: () => {
-            ScrollTrigger.refresh();
+      if (items && items.length > 0) {
+        gsap.fromTo(
+          items,
+          { opacity: 0, y: 25 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.5,
+            stagger: 0.08,
+            ease: "power2.out",
+            onComplete: () => {
+              ScrollTrigger.refresh();
+            },
           },
-        },
-      );
-    } else {
-      ScrollTrigger.refresh();
-    }
+        );
+      } else {
+        ScrollTrigger.refresh();
+      }
+    }, listRef);
+
+    return () => ctx.revert();
   }, [activeTab, loading]);
 
   const currentList = activeTab === "experience" ? experienceData : educationData;
@@ -68,19 +72,20 @@ export default function Experience() {
       <div className="section-header" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <h2 className="section-title kinetic-reveal">Experience.</h2>
 
-        {/* --- TOGGLE MENU (AUTO LIGHT/DARK MODE NATIVE) --- */}
+        {/* --- TOGGLE MENU --- */}
         <div style={{ display: "flex", gap: "2rem", marginTop: "0.5rem" }}>
           <button
+            type="button"
             onClick={() => setActiveTab("experience")}
+            className="magnetic-target"
             style={{
               background: "none",
               border: "none",
               paddingBottom: "0.5rem",
-              cursor: "hidden",
+              cursor: "pointer",
               fontSize: "1rem",
               fontWeight: "600",
               color: "inherit",
-              // 💡 KUNCI: Mainkan opacity & currentColor biar adaptif di light/dark mode tanpa CSS tambahan
               opacity: activeTab === "experience" ? 1 : 0.4,
               borderBottom: "2px solid",
               borderColor: activeTab === "experience" ? "currentColor" : "transparent",
@@ -91,12 +96,14 @@ export default function Experience() {
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab("education")}
+            className="magnetic-target"
             style={{
               background: "none",
               border: "none",
               paddingBottom: "0.5rem",
-              cursor: "hidden",
+              cursor: "pointer",
               fontSize: "1rem",
               fontWeight: "600",
               color: "inherit",
@@ -112,39 +119,28 @@ export default function Experience() {
       </div>
 
       {/* --- TIMELINE LIST --- */}
-      <div className="experience-list" ref={listRef} style={{ marginTop: "4rem" }}>
+      <div className="experience-list" ref={listRef} style={{ marginTop: "3.5rem" }}>
         {loading ? (
-          <p style={{ textAlign: "center", opacity: 0.5 }}>Loading database...</p>
+          <p style={{ textAlign: "center", opacity: 0.5, padding: "2rem 0" }}>Loading database...</p>
         ) : currentList.length > 0 ? (
           currentList.map((item, idx) => (
-            <div
-              key={item.id || idx}
-              className="experience-item"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                padding: "2.5rem 0",
-                borderBottom: "1px solid var(--glass-border, rgba(255, 255, 255, 0.08))",
-                willChange: "transform, opacity",
-              }}
-            >
+            <div key={item.id || idx} className="exp-row experience-item">
               {/* SISI KIRI: Durasi & Posisi */}
-              <div className="exp-left" style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                <span style={{ fontSize: "0.85rem", opacity: 0.4, textTransform: "uppercase", letterSpacing: "0.5px" }}>{item.date_range}</span>
-                <h3 style={{ fontSize: "clamp(1.4rem, 4vw, 2.2rem)", fontWeight: "700", margin: 0, letterSpacing: "-0.5px" }}>{item.title}</h3>
+              <div className="exp-left" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <span style={{ fontSize: "0.85rem", opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.5px" }}>{item.date_range}</span>
+                <h3 style={{ fontSize: "clamp(1.35rem, 3.5vw, 2.1rem)", fontWeight: "700", margin: 0, letterSpacing: "-0.5px" }}>{item.title}</h3>
               </div>
 
               {/* SISI KANAN: Deskripsi */}
               {item.description && (
-                <div className="exp-right" style={{ fontSize: "1rem", lineHeight: "1.7", opacity: 0.8 }}>
-                  <p style={{ margin: 0 }}>{item.description}</p>
+                <div className="exp-right" style={{ fontSize: "1rem", lineHeight: "1.7", opacity: 0.85 }}>
+                  <p className="exp-description" style={{ margin: 0 }}>{item.description}</p>
                 </div>
               )}
             </div>
           ))
         ) : (
-          <p style={{ textAlign: "center", opacity: 0.4, padding: "4rem 0" }}>Belum ada data di sub-kategori ini, Zi.</p>
+          <p style={{ textAlign: "center", opacity: 0.4, padding: "4rem 0" }}>Belum ada data di sub-kategori ini.</p>
         )}
       </div>
     </section>
