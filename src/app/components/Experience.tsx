@@ -73,9 +73,11 @@ export default function Experience() {
         <h2 className="section-title kinetic-reveal">Experience.</h2>
 
         {/* --- TOGGLE MENU --- */}
-        <div style={{ display: "flex", gap: "2rem", marginTop: "0.5rem" }}>
+        <div role="tablist" aria-label="Experience Categories" style={{ display: "flex", gap: "2rem", marginTop: "0.5rem" }}>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "experience"}
             onClick={() => setActiveTab("experience")}
             className="magnetic-target"
             style={{
@@ -97,6 +99,8 @@ export default function Experience() {
 
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "education"}
             onClick={() => setActiveTab("education")}
             className="magnetic-target"
             style={{

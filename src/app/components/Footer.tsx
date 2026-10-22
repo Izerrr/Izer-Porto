@@ -24,12 +24,7 @@ export default function Footer() {
           <a href={`mailto:${email}`} className="btn-primary magnetic-target">
             Get in touch
           </a>
-          <button
-            type="button"
-            onClick={handleCopyEmail}
-            className={`btn-copy-email magnetic-target ${copied ? "copied" : ""}`}
-            aria-label="Copy email address to clipboard"
-          >
+          <button type="button" onClick={handleCopyEmail} className={`btn-copy-email magnetic-target ${copied ? "copied" : ""}`} aria-label="Copy email address to clipboard">
             {copied ? "✓ Email Copied!" : "Copy Email"}
           </button>
         </div>
@@ -46,7 +41,7 @@ export default function Footer() {
             GitHub
           </a>
         </div>
-        <p className="copyright">&copy; 2026 IZER. CRAFTED WITH PROFESSIONALISM.</p>
+        <p className="copyright">&copy; 2026 IZERWORKS. FROM THE RIVER TO THE SEA.</p>
       </div>
     </footer>
   );

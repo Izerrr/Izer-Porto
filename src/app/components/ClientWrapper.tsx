@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import gsap from "gsap";
 import Lenis from "@studio-freight/lenis";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -7,8 +8,22 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
 
 export default function ClientWrapper({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAdminOrLogin = pathname?.startsWith("/admin") || pathname?.startsWith("/login");
+
   useEffect(() => {
-    /* 1. Lenis Smooth Scroll Engine synced with GSAP Ticker */
+    if (isAdminOrLogin) {
+      document.body.classList.add("native-cursor");
+      const targetCursor = document.querySelector(".cursor-follower") as HTMLElement | null;
+      if (targetCursor) gsap.set(targetCursor, { opacity: 0, display: "none" });
+      return () => {
+        document.body.classList.remove("native-cursor");
+      };
+    }
+
+    document.body.classList.remove("native-cursor");
+
+    /* 1. Lenis Smooth Scroll Engine */
     const lenis = new Lenis({
       duration: 1.15,
       easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -21,27 +36,28 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
       lenis.raf(time * 1000);
     };
     gsap.ticker.add(updateLenis);
-    gsap.ticker.lagSmoothing(0);
+    gsap.ticker.lagSmoothing(500, 33);
 
     const handleScroll = (e: any) => lenis.scrollTo(e.detail, { duration: 1.4 });
     window.addEventListener("lenis-scroll", handleScroll);
 
-    /* 2. Accurate Pointer Detection (Avoid false positives on touchscreen laptops) */
+    /* 2. Accurate Pointer Detection */
     const checkIsTouchOnly = () => {
       return window.matchMedia("(hover: none), (pointer: coarse)").matches;
     };
 
-    const targetCursor = document.querySelector(".cursor-follower") as HTMLElement;
+    const targetCursor = document.querySelector(".cursor-follower") as HTMLElement | null;
 
     let xTo: ((value: number) => void) | null = null;
     let yTo: ((value: number) => void) | null = null;
 
     if (targetCursor) {
-      // Center follower on cursor tip and force GPU compositing
+      targetCursor.style.display = "";
       gsap.set(targetCursor, { opacity: 0, xPercent: -50, yPercent: -50, force3D: true });
 
-      xTo = gsap.quickTo(targetCursor, "x", { duration: 0.12, ease: "power2.out" });
-      yTo = gsap.quickTo(targetCursor, "y", { duration: 0.12, ease: "power2.out" });
+      // Snappy duration (0.08s) eliminates the drag lag while preserving fluid movement
+      xTo = gsap.quickTo(targetCursor, "x", { duration: 0.08, ease: "power2.out" });
+      yTo = gsap.quickTo(targetCursor, "y", { duration: 0.08, ease: "power2.out" });
     }
 
     let isCursorVisible = false;
@@ -79,11 +95,12 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
         return;
       }
 
-      const target = el.closest("a, button, .magnetic-target");
+      const target = el.closest("a, button, .magnetic-target, [role='button'], .slider-dot");
       if (target) {
         if (target.classList.contains("work-link-wrapper")) {
           gsap.to(targetCursor, { scale: 2.2, opacity: 0.4, duration: 0.3, overwrite: "auto" });
         } else {
+          // Bouncy / elastic "mentul-mentul" feel with back.out(1.7)
           gsap.to(targetCursor, { scale: 3.5, opacity: 0.3, duration: 0.3, ease: "back.out(1.7)", overwrite: "auto" });
         }
       }
@@ -92,7 +109,7 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
     const handleOut = (e: MouseEvent) => {
       if (checkIsTouchOnly() || !targetCursor) return;
 
-      const target = (e.target as HTMLElement).closest("a, button, .magnetic-target, input, textarea");
+      const target = (e.target as HTMLElement).closest("a, button, .magnetic-target, [role='button'], .slider-dot, input, textarea");
       if (target) {
         gsap.to(targetCursor, { scale: 1, opacity: 1, duration: 0.3, overwrite: "auto" });
       }
@@ -129,7 +146,7 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
       progressAnimation.scrollTrigger?.kill();
       progressAnimation.kill();
     };
-  }, []);
+  }, [isAdminOrLogin]);
 
   return <>{children}</>;
 }

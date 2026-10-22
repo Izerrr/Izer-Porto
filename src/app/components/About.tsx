@@ -11,6 +11,7 @@ export default function About() {
     "/Resources/About_Image/profile6.webp",
   ]);
   const [imgIndex, setImgIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
 
   const [aboutText, setAboutText] = useState<string>(
@@ -44,16 +45,16 @@ export default function About() {
       .catch((err) => console.error("Gagal ambil teks About:", err));
   }, []);
 
-  /* 2. Isolated Slider Timer */
+  /* 2. Isolated Slider Timer with Hover Pause */
   useEffect(() => {
-    if (images.length <= 1) return;
+    if (images.length <= 1 || isHovered) return;
 
     const interval = setInterval(() => {
       setImgIndex((prev) => (prev + 1) % images.length);
     }, 4500);
 
     return () => clearInterval(interval);
-  }, [images.length]);
+  }, [images.length, isHovered]);
 
   return (
     <section id="about" className="section-container" ref={sectionRef} style={{ minHeight: "60vh" }}>
@@ -64,12 +65,17 @@ export default function About() {
       <div className="glass-card about-combined">
         <div className="about-text">
           <h3 className="elegant-heading-small">Get to Know Me!</h3>
-          <p>{paragraphs[0] || "\u00A0"}</p>
-          <p>{paragraphs[1] || "\u00A0"}</p>
+          {paragraphs.filter(Boolean).map((para, idx) => (
+            <p key={idx}>{para}</p>
+          ))}
         </div>
 
         {/* Wadah Visual Bersih Terkalibrasi */}
-        <div className="about-visual-wrapper">
+        <div
+          className="about-visual-wrapper"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
           {images.map((src, idx) => (
             <img
               key={`${src}-${idx}`}

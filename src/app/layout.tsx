@@ -31,9 +31,15 @@ export const metadata: Metadata = {
     locale: "id_ID",
     type: "website",
   },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "IZER | Portfolio",
+    description: "Crafting Digital Solutions with Creative Edge.",
+    images: ["/Resources/thumbnail-sharing.png?v=1"],
+  },
 };
 
-// Load font Inter dan daftarkan sebagai variable
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -41,7 +47,22 @@ const inter = Inter({
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Zero-FOUC Theme Script: executes before initial paint to prevent light mode flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                if (localStorage.getItem("izer_theme") === "light") {
+                  document.documentElement.classList.add("light-mode");
+                  document.body && document.body.classList.add("light-mode");
+                }
+              } catch (_) {}
+            `,
+          }}
+        />
+      </head>
       <body className={inter.variable}>
         {/* Visual global statis */}
         <div className="cursor-follower"></div>

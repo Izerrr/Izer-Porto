@@ -7,45 +7,33 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function Hero() {
   const [typewriter, setTypewriter] = useState("Rayhan Fahrezi Setiawan.");
-  const [localTime, setLocalTime] = useState("");
 
-  // 1. Live WIB Timezone Clock
-  useEffect(() => {
-    const updateClock = () => {
-      try {
-        const now = new Date();
-        const formatter = new Intl.DateTimeFormat("en-GB", {
-          timeZone: "Asia/Jakarta",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        });
-        setLocalTime(`${formatter.format(now)} WIB`);
-      } catch {
-        setLocalTime("GMT+7");
-      }
-    };
-    updateClock();
-    const timer = setInterval(updateClock, 30000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // 2. GSAP Parallax & Watermark Scroll
+  // 1. GSAP Parallax & Watermark Scroll (Memory-optimized with quickTo)
   useEffect(() => {
     const hBox = document.querySelector(".hero-visual-box") as HTMLElement | null;
     const hImg = document.querySelector(".parallax-img") as HTMLElement | null;
 
+    let xImgTo: ((val: number) => void) | null = null;
+    let yImgTo: ((val: number) => void) | null = null;
+
+    if (hImg) {
+      xImgTo = gsap.quickTo(hImg, "x", { duration: 0.6, ease: "power2.out" });
+      yImgTo = gsap.quickTo(hImg, "y", { duration: 0.6, ease: "power2.out" });
+    }
+
     const handleMove = (e: MouseEvent) => {
-      if (!hBox || !hImg || window.matchMedia("(hover: none), (pointer: coarse)").matches) return;
+      if (!hBox || !xImgTo || !yImgTo || window.matchMedia("(hover: none), (pointer: coarse)").matches) return;
       const { left, top, width, height } = hBox.getBoundingClientRect();
       const x = (e.clientX - left - width / 2) / 30;
       const y = (e.clientY - top - height / 2) / 30;
-      gsap.to(hImg, { x, y, duration: 0.6, ease: "power2.out", overwrite: "auto" });
+      xImgTo(x);
+      yImgTo(y);
     };
 
     const handleLeave = () => {
-      if (!hImg) return;
-      gsap.to(hImg, { x: 0, y: 0, duration: 1, ease: "power3.out", overwrite: "auto" });
+      if (!xImgTo || !yImgTo) return;
+      xImgTo(0);
+      yImgTo(0);
     };
 
     const ctx = gsap.context(() => {
@@ -75,7 +63,7 @@ export default function Hero() {
     };
   }, []);
 
-  // 3. Typewriter Logic
+  // 2. Typewriter Logic
   useEffect(() => {
     const words = ["Rayhan Fahrezi Setiawan.", "IZER."];
     let wIdx = 0;
@@ -124,13 +112,6 @@ export default function Hero() {
       </div>
 
       <div className="hero-branding">
-        <div className="availability-pill">
-          <span className="status-dot"></span>
-          <span className="status-text">
-            Available for Projects {localTime ? `• ID (${localTime})` : "• Indonesia"}
-          </span>
-        </div>
-
         <h2 className="hero-name">
           <span className="typewriter-text">{typewriter}</span>
           <span className="typing-cursor">|</span>

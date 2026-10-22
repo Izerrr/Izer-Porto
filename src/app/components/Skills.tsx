@@ -92,14 +92,16 @@ export default function Skills() {
           <div className="marquee-track">
             <div className="animate-marquee">
               {[...techIcons, ...techIcons, ...techIcons, ...techIcons].map((icon, idx) => (
-                <img
-                  key={`${icon.id || idx}-${idx}`}
-                  src={icon.image_url}
-                  alt={icon.title || "Tech Icon"}
-                  title={icon.title || ""}
-                  className="tech-icon"
-                  loading="lazy"
-                />
+                <div key={`${icon.id || idx}-${idx}`} className="tech-icon-wrapper">
+                  <img
+                    src={icon.image_url}
+                    alt={icon.title || "Tech Icon"}
+                    className="tech-icon"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  {icon.title && <span className="tech-tooltip">{icon.title}</span>}
+                </div>
               ))}
             </div>
           </div>

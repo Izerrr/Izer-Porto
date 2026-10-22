@@ -14,7 +14,6 @@ export default function Navbar() {
   const router = useRouter();
 
   const navItems = ["About", "Skills", "Experience", "Works", "Contact"];
-  const linkedInUrl = "https://linkedin.com/in/rayhan-fahrezi-setiawan/";
 
   // 1. Restore saved theme on mount
   useEffect(() => {
@@ -30,7 +29,28 @@ export default function Navbar() {
     }
   }, []);
 
-  // 2. ScrollTrigger section tracking & Magnetic targets with clean listener removal
+  // 2. Lock body scroll and handle ESC when mobile menu is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isOpen]);
+
+  // 3. ScrollTrigger section tracking & Magnetic targets with clean listener removal
   useEffect(() => {
     const listeners: Array<{ el: HTMLElement; move: (e: MouseEvent) => void; leave: () => void }> = [];
 
@@ -140,11 +160,6 @@ export default function Navbar() {
         </ul>
 
         <div className="nav-controls">
-          <a href={linkedInUrl} target="_blank" rel="noopener noreferrer" className="nav-resume-btn magnetic-target" title="View Resume & Profile on LinkedIn">
-            <span>Resume</span>
-            <span className="resume-arrow">↗</span>
-          </a>
-
           <button onClick={toggleTheme} className="theme-btn magnetic-target" aria-label="Toggle theme">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               {isLight ? (
@@ -186,11 +201,6 @@ export default function Navbar() {
                 </li>
               );
             })}
-            <li style={{ marginTop: "0.5rem" }}>
-              <a href={linkedInUrl} target="_blank" rel="noopener noreferrer" className="mobile-resume-link" onClick={() => setIsOpen(false)}>
-                Resume / LinkedIn ↗
-              </a>
-            </li>
           </ul>
         </div>
       </div>

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -35,13 +35,47 @@ const isDirectVideoFile = (url: string | null | undefined): boolean => {
   return /\.(mp4|webm|ogg|mov)($|\?)/i.test(url.trim());
 };
 
-/* Component Sub-Item per Card untuk mengelola Hover State secara terisolasi */
+/* Component Sub-Item per Card dengan Smart Intent Hover & Memory Cleanup */
 function WorkCardItem({ item, onSelect }: { item: Project; onSelect: (p: Project) => void }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [showLiveIframe, setShowLiveIframe] = useState(false);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const isDirectVideo = isDirectVideoFile(item.video_url);
   const canEmbedLiveIframe = isLiveWebsite(item.project_url);
   const displayCategory = item.category && item.category.toLowerCase() !== "works" ? item.category : "Featured Project";
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (canEmbedLiveIframe && typeof window !== "undefined" && window.innerWidth > 768) {
+      hoverTimerRef.current = setTimeout(() => {
+        setShowLiveIframe(true);
+      }, 420);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (iframeRef.current) {
+      try {
+        iframeRef.current.src = "about:blank";
+      } catch {
+        // Ignore cross-origin frame reset errors
+      }
+    }
+    setShowLiveIframe(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    };
+  }, []);
 
   return (
     <a
@@ -51,8 +85,8 @@ function WorkCardItem({ item, onSelect }: { item: Project; onSelect: (p: Project
       className="work-link-wrapper"
       style={{ flexShrink: 0 }}
       draggable={false}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onClick={(e) => {
         e.preventDefault();
         onSelect(item);
@@ -88,7 +122,7 @@ function WorkCardItem({ item, onSelect }: { item: Project; onSelect: (p: Project
               zIndex: 0,
             }}
           >
-            {/* Static Thumbnail */}
+            {/* Static WebP Cover Thumbnail */}
             <div
               className="work-image-bg"
               style={{
@@ -98,14 +132,15 @@ function WorkCardItem({ item, onSelect }: { item: Project; onSelect: (p: Project
                 position: "absolute",
                 inset: 0,
                 zIndex: 1,
-                opacity: isHovered && canEmbedLiveIframe ? 0 : 1,
+                opacity: showLiveIframe && canEmbedLiveIframe ? 0 : 1,
                 transition: "opacity 0.4s ease",
               }}
             />
 
-            {/* OPTIMIZATION: Iframe CUMA di-render saat kartu di-HOVER */}
-            {canEmbedLiveIframe && isHovered && (
+            {/* Smart Debounced Live Iframe (Only mounts on intentional hover > 420ms & cleans up on leave) */}
+            {canEmbedLiveIframe && showLiveIframe && (
               <iframe
+                ref={iframeRef}
                 src={item.project_url}
                 title={item.title}
                 className="work-live-iframe"
@@ -170,17 +205,25 @@ export default function Works() {
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [mounted, setMounted] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
+  const [modalViewMode, setModalViewMode] = useState<"live" | "snapshot">("live");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
+  const modalIframeRef = useRef<HTMLIFrameElement | null>(null);
   const dragState = useRef({
     isDown: false,
     startX: 0,
     lastX: 0,
     movedDistance: 0,
   });
+  const touchState = useRef({
+    startX: 0,
+    startY: 0,
+    moved: false,
+  });
 
-  /* 1. Fetch data, Auto-Upgrade HTTPS, and generate thumbnails */
+  /* 1. Fetch data, Auto-Upgrade HTTPS, and route un-cached website covers to Local WebP Optimizer */
   useEffect(() => {
     setMounted(true);
 
@@ -205,6 +248,11 @@ export default function Works() {
               }
             }
 
+            // Upgrade legacy external thum.io URLs to local cached WebP cover endpoint
+            if (thumb && thumb.includes("image.thum.io")) {
+              thumb = `/api/capture-cover?url=${encodeURIComponent(projectUrl || thumb)}`;
+            }
+
             // 1. YouTube video thumbnail fallback
             if (video && (video.includes("youtube.com") || video.includes("youtu.be"))) {
               const match = video.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
@@ -212,9 +260,9 @@ export default function Works() {
                 thumb = `https://img.youtube.com/vi/${match[2]}/maxresdefault.jpg`;
               }
             }
-            // 2. Instant website screenshot fallback
+            // 2. Instant cached WebP website screenshot fallback
             else if (!thumb && isLiveWebsite(projectUrl)) {
-              thumb = `https://image.thum.io/get/width/1024/crop/800/${projectUrl}`;
+              thumb = `/api/capture-cover?url=${encodeURIComponent(projectUrl)}`;
             }
 
             // 3. Default local image fallback
@@ -252,6 +300,48 @@ export default function Works() {
     if (selectedCategory === "All") return works;
     return works.filter((w) => w.category === selectedCategory);
   }, [works, selectedCategory]);
+
+  const currentModalIndex = useMemo(() => {
+    if (!activeProject) return -1;
+    return filteredWorks.findIndex((w) => w.id === activeProject.id);
+  }, [activeProject, filteredWorks]);
+
+  const handlePrevProject = useCallback(() => {
+    if (filteredWorks.length === 0) return;
+    const prevIdx = currentModalIndex > 0 ? currentModalIndex - 1 : filteredWorks.length - 1;
+    setActiveProject(filteredWorks[prevIdx]);
+  }, [currentModalIndex, filteredWorks]);
+
+  const handleNextProject = useCallback(() => {
+    if (filteredWorks.length === 0) return;
+    const nextIdx = currentModalIndex < filteredWorks.length - 1 ? currentModalIndex + 1 : 0;
+    setActiveProject(filteredWorks[nextIdx]);
+  }, [currentModalIndex, filteredWorks]);
+
+  const handleCategorySelect = (cat: string) => {
+    setSelectedCategory(cat);
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = 0;
+    }
+    setMobileActiveIndex(0);
+  };
+
+  /* Track mobile horizontal scroll counter */
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      const card = el.firstElementChild as HTMLElement | null;
+      if (!card) return;
+      const cardWidth = card.offsetWidth + 16;
+      const index = Math.round(el.scrollLeft / cardWidth);
+      setMobileActiveIndex(Math.min(Math.max(0, index), filteredWorks.length - 1));
+    };
+
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [filteredWorks.length]);
 
   /* 2. GSAP Horizontal Scroll Setup */
   useEffect(() => {
@@ -300,12 +390,11 @@ export default function Works() {
 
   /* 3. Desktop Mouse Grab-to-Scroll Handler */
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (window.innerWidth <= 768) return;
+    if (window.innerWidth <= 768 || e.button !== 0) return;
     dragState.current.isDown = true;
     dragState.current.startX = e.clientX;
     dragState.current.lastX = e.clientX;
     dragState.current.movedDistance = 0;
-    setIsDragging(true);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -314,7 +403,8 @@ export default function Works() {
     dragState.current.lastX = e.clientX;
     dragState.current.movedDistance += Math.abs(deltaX);
 
-    if (dragState.current.movedDistance > 5) {
+    if (dragState.current.movedDistance > 6) {
+      if (!isDragging) setIsDragging(true);
       window.scrollBy({ top: deltaX * 1.4, behavior: "instant" as ScrollBehavior });
     }
   };
@@ -322,21 +412,65 @@ export default function Works() {
   const handleMouseUpOrLeave = () => {
     if (!dragState.current.isDown) return;
     dragState.current.isDown = false;
-    setIsDragging(false);
+    setTimeout(() => {
+      setIsDragging(false);
+      dragState.current.movedDistance = 0;
+    }, 80);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      touchState.current.startX = e.touches[0].clientX;
+      touchState.current.startY = e.touches[0].clientY;
+      touchState.current.moved = false;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      const deltaX = Math.abs(e.touches[0].clientX - touchState.current.startX);
+      const deltaY = Math.abs(e.touches[0].clientY - touchState.current.startY);
+      if (deltaX > 8 || deltaY > 8) {
+        touchState.current.moved = true;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setTimeout(() => {
+      touchState.current.moved = false;
+    }, 120);
   };
 
   const handleCardSelect = (project: Project) => {
-    if (dragState.current.movedDistance > 8) return;
+    if (dragState.current.movedDistance > 6 || touchState.current.moved) return;
+    setModalViewMode("live");
     setActiveProject(project);
   };
 
-  /* 4. Lock body scroll & Escape key handler when modal is open */
+  const closeModal = useCallback(() => {
+    if (modalIframeRef.current) {
+      try {
+        modalIframeRef.current.src = "about:blank";
+      } catch {
+        // Ignore
+      }
+    }
+    setActiveProject(null);
+  }, []);
+
+  /* 4. Lock body scroll & Keyboard handler when modal is open */
   useEffect(() => {
     document.body.style.overflow = activeProject ? "hidden" : "";
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!activeProject) return;
       if (e.key === "Escape") {
-        setActiveProject(null);
+        closeModal();
+      } else if (e.key === "ArrowLeft") {
+        handlePrevProject();
+      } else if (e.key === "ArrowRight") {
+        handleNextProject();
       }
     };
 
@@ -348,7 +482,7 @@ export default function Works() {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [activeProject]);
+  }, [activeProject, closeModal, handlePrevProject, handleNextProject]);
 
   const getEmbedUrl = (url: string) => {
     if (!url) return "";
@@ -393,7 +527,7 @@ export default function Works() {
           {categories.length > 1 && (
             <div className="works-filter-tabs">
               {categories.map((cat) => (
-                <button key={cat} type="button" onClick={() => setSelectedCategory(cat)} className={`works-filter-btn magnetic-target ${selectedCategory === cat ? "active" : ""}`}>
+                <button key={cat} type="button" onClick={() => handleCategorySelect(cat)} className={`works-filter-btn magnetic-target ${selectedCategory === cat ? "active" : ""}`}>
                   {cat}
                 </button>
               ))}
@@ -408,10 +542,22 @@ export default function Works() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUpOrLeave}
           onMouseLeave={handleMouseUpOrLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           style={{ display: "flex", flexWrap: "nowrap" }}
         >
           {loading ? <p style={{ color: "var(--text-dim)", padding: "5vw" }}>Loading works...</p> : filteredWorks.map((item) => <WorkCardItem key={item.id} item={item} onSelect={handleCardSelect} />)}
         </div>
+
+        {/* Mobile Swipe Counter */}
+        {!loading && filteredWorks.length > 1 && (
+          <div className="works-mobile-counter">
+            <span style={{ fontWeight: "700" }}>{String(mobileActiveIndex + 1).padStart(2, "0")}</span>
+            <span style={{ opacity: 0.3 }}>/</span>
+            <span style={{ opacity: 0.5 }}>{String(filteredWorks.length).padStart(2, "0")}</span>
+          </div>
+        )}
       </section>
 
       {/* Modal Overlay Portal */}
@@ -431,7 +577,7 @@ export default function Works() {
               backdropFilter: "blur(20px)",
               padding: "clamp(1rem, 3vw, 2rem)",
             }}
-            onClick={() => setActiveProject(null)}
+            onClick={closeModal}
           >
             {activeProject && (
               <div
@@ -456,32 +602,77 @@ export default function Works() {
                     justifyContent: "space-between",
                     alignItems: "center",
                     borderBottom: "1px solid rgba(255,255,255,0.08)",
+                    flexWrap: "wrap",
+                    gap: "0.75rem",
                   }}
                 >
                   <div>
                     <span style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.5, display: "block", marginBottom: "0.2rem" }}>{activeProject.category}</span>
                     <h2 style={{ fontSize: "1.25rem", fontWeight: "600", margin: 0 }}>{activeProject.title}</h2>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveProject(null)}
-                    aria-label="Close preview modal"
-                    style={{
-                      background: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: "50%",
-                      width: "36px",
-                      height: "36px",
-                      color: "inherit",
-                      fontSize: "1.1rem",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    ✕
-                  </button>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    {/* View mode toggle for live websites */}
+                    {(isLiveWebsite(activeProject.project_url) || (activeProject.project_url && activeProject.project_url.includes("/embed"))) && (
+                      <div style={{ display: "inline-flex", background: "rgba(255,255,255,0.08)", borderRadius: "8px", padding: "2px" }}>
+                        <button
+                          type="button"
+                          onClick={() => setModalViewMode("live")}
+                          style={{
+                            background: modalViewMode === "live" ? "rgba(56, 189, 248, 0.25)" : "transparent",
+                            color: modalViewMode === "live" ? "#38bdf8" : "var(--text-dim)",
+                            border: "none",
+                            borderRadius: "6px",
+                            padding: "0.25rem 0.6rem",
+                            fontSize: "0.72rem",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                          }}
+                        >
+                          🌐 Live
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setModalViewMode("snapshot")}
+                          style={{
+                            background: modalViewMode === "snapshot" ? "rgba(56, 189, 248, 0.25)" : "transparent",
+                            color: modalViewMode === "snapshot" ? "#38bdf8" : "var(--text-dim)",
+                            border: "none",
+                            borderRadius: "6px",
+                            padding: "0.25rem 0.6rem",
+                            fontSize: "0.72rem",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                          }}
+                        >
+                          📸 Snapshot
+                        </button>
+                      </div>
+                    )}
+
+                    {filteredWorks.length > 1 && (
+                      <>
+                        <button type="button" onClick={handlePrevProject} aria-label="Previous project" className="modal-nav-btn" title="Previous (←)">
+                          ←
+                        </button>
+                        <span style={{ fontSize: "0.75rem", opacity: 0.55, minWidth: "38px", textAlign: "center" }}>
+                          {currentModalIndex + 1} / {filteredWorks.length}
+                        </span>
+                        <button type="button" onClick={handleNextProject} aria-label="Next project" className="modal-nav-btn" title="Next (→)">
+                          →
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      aria-label="Close preview modal"
+                      className="modal-nav-btn"
+                      style={{ marginLeft: "0.25rem" }}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
 
                 {/* Media Container */}
@@ -495,6 +686,8 @@ export default function Works() {
                   {activeProject.video_url ? (
                     activeProject.video_url.includes("youtube.com") || activeProject.video_url.includes("youtu.be") ? (
                       <iframe
+                        key={activeProject.id}
+                        ref={modalIframeRef}
                         src={getEmbedUrl(activeProject.video_url)}
                         title={activeProject.title}
                         style={{ width: "100%", height: "100%", border: "none" }}
@@ -503,6 +696,7 @@ export default function Works() {
                       />
                     ) : (
                       <video
+                        key={activeProject.id}
                         src={activeProject.video_url}
                         controls
                         autoPlay
@@ -513,8 +707,10 @@ export default function Works() {
                         }}
                       />
                     )
-                  ) : isLiveWebsite(activeProject.project_url) || activeProject.project_url.includes("/embed") ? (
+                  ) : (isLiveWebsite(activeProject.project_url) || (activeProject.project_url && activeProject.project_url.includes("/embed"))) && modalViewMode === "live" ? (
                     <iframe
+                      key={activeProject.id}
+                      ref={modalIframeRef}
                       src={activeProject.project_url}
                       title={activeProject.title}
                       style={{
@@ -527,6 +723,7 @@ export default function Works() {
                     />
                   ) : (
                     <img
+                      key={activeProject.id}
                       src={activeProject.auto_thumbnail || activeProject.image_url || "/Resources/thumbnail-sharing.png"}
                       alt={activeProject.title}
                       style={{
@@ -547,9 +744,9 @@ export default function Works() {
                     background: "rgba(0,0,0,0.4)",
                   }}
                 >
-                  <span style={{ fontSize: "0.75rem", opacity: 0.45 }}>Press ESC to close</span>
+                  <span style={{ fontSize: "0.75rem", opacity: 0.45 }}>Press ← → to navigate, ESC to close</span>
                   <a
-                    href={activeProject.project_url.replace(/\/embed\/?$/, "/")}
+                    href={activeProject.project_url ? activeProject.project_url.replace(/\/embed\/?$/, "/") : "#"}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
