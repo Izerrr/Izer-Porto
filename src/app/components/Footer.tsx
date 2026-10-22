@@ -1,11 +1,22 @@
 "use client";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+import { sound } from "../utils/sound";
+
+const emptySubscribe = () => () => {};
 
 export default function Footer() {
   const [copied, setCopied] = useState(false);
   const email = "rayhanfahrezisetiawan@gmail.com";
 
+  const isClient = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+
   const handleCopyEmail = async () => {
+    sound.playAction();
     try {
       await navigator.clipboard.writeText(email);
       setCopied(true);
@@ -43,6 +54,19 @@ export default function Footer() {
         </div>
         <p className="copyright">&copy; 2026 IZERWORKS. FROM THE RIVER TO THE SEA.</p>
       </div>
+
+      {copied &&
+        isClient &&
+        createPortal(
+          <div className="macos-hud-toast" role="status" aria-live="polite">
+            <div className="macos-hud-icon">✓</div>
+            <div className="macos-hud-content">
+              <span className="macos-hud-title">Email Copied to Clipboard</span>
+              <span className="macos-hud-subtitle">{email}</span>
+            </div>
+          </div>,
+          document.body,
+        )}
     </footer>
   );
 }

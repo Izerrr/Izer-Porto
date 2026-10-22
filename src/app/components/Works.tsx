@@ -223,7 +223,6 @@ function WorkCardItem({ item, onSelect }: { item: Project; onSelect: (p: Project
 export default function Works() {
   const [works, setWorks] = useState<Project[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [selectedTech, setSelectedTech] = useState<string | null>(null);
   const [mediaLoading, setMediaLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
@@ -323,25 +322,11 @@ export default function Works() {
     return ["All", ...unique];
   }, [works]);
 
-  const availableTechTags = useMemo(() => {
-    const allTags = works.flatMap((w) => getProjectTechTags(w));
-    return Array.from(new Set(allTags)).slice(0, 7);
-  }, [works]);
-
   const filteredWorks = useMemo(() => {
     return works.filter((w) => {
-      const matchCat = selectedCategory === "All" || w.category === selectedCategory;
-      const matchTech = !selectedTech || getProjectTechTags(w).includes(selectedTech);
-      return matchCat && matchTech;
+      return selectedCategory === "All" || w.category === selectedCategory;
     });
-  }, [works, selectedCategory, selectedTech]);
-
-  const handleTechSelect = (tech: string | null) => {
-    sound.playAction();
-    setSelectedTech(tech);
-    if (scrollRef.current) scrollRef.current.scrollLeft = 0;
-    setMobileActiveIndex(0);
-  };
+  }, [works, selectedCategory]);
 
   const currentModalIndex = useMemo(() => {
     if (!activeProject) return -1;
@@ -568,45 +553,29 @@ export default function Works() {
             </h2>
           </div>
 
-          {/* Dynamic Category Filter Tabs */}
+          {/* iOS-Style Segmented Control */}
           {categories.length > 1 && (
-            <div className="works-filter-tabs">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => {
-                    sound.playAction();
-                    handleCategorySelect(cat);
-                  }}
-                  className={`works-filter-btn magnetic-target ${selectedCategory === cat ? "active" : ""}`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Interactive Tech Stack Filter Bar (Feature 3) */}
-          {availableTechTags.length > 0 && (
-            <div className="works-tech-filter-bar">
-              <button
-                type="button"
-                onClick={() => handleTechSelect(null)}
-                className={`works-tech-pill magnetic-target ${selectedTech === null ? "active" : ""}`}
-              >
-                All Tech
-              </button>
-              {availableTechTags.map((tech) => (
-                <button
-                  key={tech}
-                  type="button"
-                  onClick={() => handleTechSelect(tech)}
-                  className={`works-tech-pill magnetic-target ${selectedTech === tech ? "active" : ""}`}
-                >
-                  #{tech}
-                </button>
-              ))}
+            <div className="ios-segmented-control" role="tablist" aria-label="Project categories">
+              {categories.map((cat) => {
+                const count = cat === "All" ? works.length : works.filter((w) => w.category === cat).length;
+                const isActive = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => {
+                      sound.playAction();
+                      handleCategorySelect(cat);
+                    }}
+                    className={`ios-segment-btn magnetic-target ${isActive ? "active" : ""}`}
+                  >
+                    <span className="ios-segment-label">{cat}</span>
+                    <span className="ios-segment-count">{count}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

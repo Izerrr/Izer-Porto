@@ -64,6 +64,12 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
     let isCursorVisible = false;
 
     const moveCursor = (e: MouseEvent) => {
+      const card = (e.target as HTMLElement | null)?.closest(".glass-card, .skill-box, .ios-segmented-control") as HTMLElement | null;
+      if (card) {
+        const rect = card.getBoundingClientRect();
+        card.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
+        card.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
+      }
       if (!targetCursor || checkIsTouchOnly()) {
         if (targetCursor) gsap.set(targetCursor, { opacity: 0 });
         return;
