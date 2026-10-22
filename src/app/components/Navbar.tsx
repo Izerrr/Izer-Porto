@@ -1,8 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { sound } from "../utils/sound";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -10,6 +11,18 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLight, setIsLight] = useState(false);
   const [activeSection, setActiveSection] = useState("hero");
+  const isMuted = useSyncExternalStore(
+    (callback) => {
+      window.addEventListener("izer-sound-toggle", callback);
+      return () => window.removeEventListener("izer-sound-toggle", callback);
+    },
+    () => sound.isMuted(),
+    () => false,
+  );
+
+  const handleToggleSound = () => {
+    sound.toggleMute();
+  };
   const pathname = usePathname();
   const router = useRouter();
 
@@ -17,16 +30,16 @@ export default function Navbar() {
 
   // 1. Restore saved theme on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem("izer_theme");
-    if (savedTheme === "light") {
-      setIsLight(true);
+    const isLightSaved = typeof window !== "undefined" && localStorage.getItem("izer_theme") === "light";
+    if (isLightSaved) {
       document.body.classList.add("light-mode");
       gsap.set(":root", { "--hero-floor": "rgba(255,255,255,0.8)" });
     } else {
-      setIsLight(false);
       document.body.classList.remove("light-mode");
       gsap.set(":root", { "--hero-floor": "rgba(10,17,32,1)" });
     }
+    const rafId = requestAnimationFrame(() => setIsLight(isLightSaved));
+    return () => cancelAnimationFrame(rafId);
   }, []);
 
   // 2. Lock body scroll and handle ESC when mobile menu is open
@@ -102,6 +115,7 @@ export default function Navbar() {
 
   const handleNavClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
+    sound.playAction();
     setIsOpen(false);
 
     if (pathname !== "/") {
@@ -113,6 +127,7 @@ export default function Navbar() {
   };
 
   const toggleTheme = () => {
+    sound.playAction();
     const newTheme = !isLight;
     setIsLight(newTheme);
     localStorage.setItem("izer_theme", newTheme ? "light" : "dark");
@@ -160,6 +175,27 @@ export default function Navbar() {
         </ul>
 
         <div className="nav-controls">
+          <button
+            onClick={handleToggleSound}
+            className={`sound-btn magnetic-target ${isMuted ? "muted" : ""}`}
+            aria-label={isMuted ? "Unmute sound effects" : "Mute sound effects"}
+            title={isMuted ? "Sound: Off (Click to Enable)" : "Sound: On (Click to Mute)"}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {isMuted ? (
+                <>
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <line x1="23" y1="9" x2="17" y2="15"></line>
+                  <line x1="17" y1="9" x2="23" y2="15"></line>
+                </>
+              ) : (
+                <>
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </>
+              )}
+            </svg>
+          </button>
           <button onClick={toggleTheme} className="theme-btn magnetic-target" aria-label="Toggle theme">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               {isLight ? (

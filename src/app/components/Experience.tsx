@@ -5,10 +5,17 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
+interface TimelineItem {
+  id?: number;
+  title: string;
+  date_range?: string;
+  description?: string;
+}
+
 export default function Experience() {
   const [activeTab, setActiveTab] = useState<"experience" | "education">("experience");
-  const [experienceData, setExperienceData] = useState<any[]>([]);
-  const [educationData, setEducationData] = useState<any[]>([]);
+  const [experienceData, setExperienceData] = useState<TimelineItem[]>([]);
+  const [educationData, setEducationData] = useState<TimelineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const sectionRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLDivElement>(null);

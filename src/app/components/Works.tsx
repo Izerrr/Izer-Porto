@@ -1,8 +1,9 @@
 "use client";
-import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { sound } from "../utils/sound";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -13,7 +14,9 @@ interface Project {
   image_url: string;
   project_url: string;
   video_url: string | null;
+  description?: string;
   auto_thumbnail?: string;
+  tags?: string[];
 }
 
 /* Helper: Force HTTPS untuk cegah Mixed Content */
@@ -27,6 +30,25 @@ const isLiveWebsite = (url: string | null | undefined): boolean => {
   if (!url || url.trim() === "") return false;
   const socialDomains = ["github.com", "behance.net", "instagram.com", "linkedin.com", "twitter.com", "x.com", "tiktok.com", "youtube.com", "youtu.be"];
   return !socialDomains.some((domain) => url.toLowerCase().includes(domain));
+};
+
+/* Helper: Extract or Infer Tech Stack tags */
+export const getProjectTechTags = (item: Project): string[] => {
+  const tags: string[] = [];
+  const text = `${item.title} ${item.category} ${item.project_url} ${item.description || ""}`.toLowerCase();
+
+  if (text.includes("next") || text.includes("react")) tags.push("Next.js / React");
+  if (text.includes("type") || text.includes("ts")) tags.push("TypeScript");
+  if (text.includes("php") || text.includes("laravel")) tags.push("PHP Native");
+  if (text.includes("gsap") || text.includes("scrolltrigger") || text.includes("motion")) tags.push("GSAP");
+  if (text.includes("video") || text.includes("premiere") || text.includes("after effects") || text.includes("reel")) tags.push("Video Editing");
+  if (text.includes("design") || text.includes("figma") || text.includes("brand") || text.includes("ui/ux")) tags.push("UI/UX Design");
+  if (text.includes("web") || text.includes("app")) tags.push("Web Architecture");
+
+  if (tags.length === 0) {
+    tags.push(item.category || "Creative Tech");
+  }
+  return Array.from(new Set(tags)).slice(0, 4);
 };
 
 /* Helper: Check direct video file */
@@ -201,9 +223,15 @@ function WorkCardItem({ item, onSelect }: { item: Project; onSelect: (p: Project
 export default function Works() {
   const [works, setWorks] = useState<Project[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedTech, setSelectedTech] = useState<string | null>(null);
+  const [mediaLoading, setMediaLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
-  const [mounted, setMounted] = useState(false);
+  const isClient = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const [isDragging, setIsDragging] = useState(false);
   const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
   const [modalViewMode, setModalViewMode] = useState<"live" | "snapshot">("live");
@@ -225,7 +253,6 @@ export default function Works() {
 
   /* 1. Fetch data, Auto-Upgrade HTTPS, and route un-cached website covers to Local WebP Optimizer */
   useEffect(() => {
-    setMounted(true);
 
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/works.php`, { cache: "no-store" })
       .then((res) => res.json())
@@ -290,16 +317,31 @@ export default function Works() {
       });
   }, []);
 
-  /* Extract Dynamic Categories from Backend Data */
+  /* Extract Dynamic Categories and Tech Tags */
   const categories = useMemo(() => {
     const unique = Array.from(new Set(works.map((w) => w.category).filter(Boolean)));
     return ["All", ...unique];
   }, [works]);
 
+  const availableTechTags = useMemo(() => {
+    const allTags = works.flatMap((w) => getProjectTechTags(w));
+    return Array.from(new Set(allTags)).slice(0, 7);
+  }, [works]);
+
   const filteredWorks = useMemo(() => {
-    if (selectedCategory === "All") return works;
-    return works.filter((w) => w.category === selectedCategory);
-  }, [works, selectedCategory]);
+    return works.filter((w) => {
+      const matchCat = selectedCategory === "All" || w.category === selectedCategory;
+      const matchTech = !selectedTech || getProjectTechTags(w).includes(selectedTech);
+      return matchCat && matchTech;
+    });
+  }, [works, selectedCategory, selectedTech]);
+
+  const handleTechSelect = (tech: string | null) => {
+    sound.playAction();
+    setSelectedTech(tech);
+    if (scrollRef.current) scrollRef.current.scrollLeft = 0;
+    setMobileActiveIndex(0);
+  };
 
   const currentModalIndex = useMemo(() => {
     if (!activeProject) return -1;
@@ -444,11 +486,14 @@ export default function Works() {
 
   const handleCardSelect = (project: Project) => {
     if (dragState.current.movedDistance > 6 || touchState.current.moved) return;
+    sound.playModalOpen();
+    setMediaLoading(true);
     setModalViewMode("live");
     setActiveProject(project);
   };
 
   const closeModal = useCallback(() => {
+    sound.playModalClose();
     if (modalIframeRef.current) {
       try {
         modalIframeRef.current.src = "about:blank";
@@ -527,8 +572,39 @@ export default function Works() {
           {categories.length > 1 && (
             <div className="works-filter-tabs">
               {categories.map((cat) => (
-                <button key={cat} type="button" onClick={() => handleCategorySelect(cat)} className={`works-filter-btn magnetic-target ${selectedCategory === cat ? "active" : ""}`}>
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    sound.playAction();
+                    handleCategorySelect(cat);
+                  }}
+                  className={`works-filter-btn magnetic-target ${selectedCategory === cat ? "active" : ""}`}
+                >
                   {cat}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Interactive Tech Stack Filter Bar (Feature 3) */}
+          {availableTechTags.length > 0 && (
+            <div className="works-tech-filter-bar">
+              <button
+                type="button"
+                onClick={() => handleTechSelect(null)}
+                className={`works-tech-pill magnetic-target ${selectedTech === null ? "active" : ""}`}
+              >
+                All Tech
+              </button>
+              {availableTechTags.map((tech) => (
+                <button
+                  key={tech}
+                  type="button"
+                  onClick={() => handleTechSelect(tech)}
+                  className={`works-tech-pill magnetic-target ${selectedTech === tech ? "active" : ""}`}
+                >
+                  #{tech}
                 </button>
               ))}
             </div>
@@ -560,90 +636,52 @@ export default function Works() {
         )}
       </section>
 
-      {/* Modal Overlay Portal */}
-      {mounted &&
+      {/* Refined Modal Overlay Portal with Full Accessibility & Theme Adaptability */}
+      {isClient &&
         createPortal(
           <div
             className={`works-modal-backdrop ${activeProject ? "open" : ""}`}
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 99999,
-              pointerEvents: activeProject ? "auto" : "none",
-              opacity: activeProject ? 1 : 0,
-              transition: "opacity 0.3s ease",
-              display: "flex",
-              background: "rgba(0, 0, 0, 0.88)",
-              backdropFilter: "blur(20px)",
-              padding: "clamp(1rem, 3vw, 2rem)",
-            }}
             onClick={closeModal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={activeProject ? "works-modal-title" : undefined}
           >
             {activeProject && (
-              <div
-                className="glass-card"
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  width: "100%",
-                  maxWidth: "1000px",
-                  borderRadius: "20px",
-                  background: "rgba(10, 10, 10, 0.88)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  overflow: "hidden",
-                  color: "#fff",
-                  boxShadow: "0 30px 60px -12px rgba(0,0,0,0.8)",
-                  margin: "auto",
-                }}
-              >
-                <div
-                  style={{
-                    padding: "1.25rem 2rem",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    borderBottom: "1px solid rgba(255,255,255,0.08)",
-                    flexWrap: "wrap",
-                    gap: "0.75rem",
-                  }}
-                >
+              <div className="works-modal-dialog" onClick={(e) => e.stopPropagation()}>
+                {/* Mobile drag handle */}
+                <div className="works-modal-drag-indicator" />
+
+                {/* Header */}
+                <div className="works-modal-header">
                   <div>
-                    <span style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.5, display: "block", marginBottom: "0.2rem" }}>{activeProject.category}</span>
-                    <h2 style={{ fontSize: "1.25rem", fontWeight: "600", margin: 0 }}>{activeProject.title}</h2>
+                    <span className="works-modal-category">{activeProject.category}</span>
+                    <h2 id="works-modal-title" className="works-modal-title">
+                      {activeProject.title}
+                    </h2>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    {/* View mode toggle for live websites */}
+                  <div className="works-modal-controls">
                     {(isLiveWebsite(activeProject.project_url) || (activeProject.project_url && activeProject.project_url.includes("/embed"))) && (
-                      <div style={{ display: "inline-flex", background: "rgba(255,255,255,0.08)", borderRadius: "8px", padding: "2px" }}>
+                      <div className="works-modal-view-mode">
                         <button
                           type="button"
-                          onClick={() => setModalViewMode("live")}
-                          style={{
-                            background: modalViewMode === "live" ? "rgba(56, 189, 248, 0.25)" : "transparent",
-                            color: modalViewMode === "live" ? "#38bdf8" : "var(--text-dim)",
-                            border: "none",
-                            borderRadius: "6px",
-                            padding: "0.25rem 0.6rem",
-                            fontSize: "0.72rem",
-                            fontWeight: "600",
-                            cursor: "pointer",
+                          onClick={() => {
+                            setModalViewMode("live");
+                            setMediaLoading(true);
+                            sound.playAction();
                           }}
+                          className={`works-modal-mode-btn ${modalViewMode === "live" ? "active" : ""}`}
                         >
                           🌐 Live
                         </button>
                         <button
                           type="button"
-                          onClick={() => setModalViewMode("snapshot")}
-                          style={{
-                            background: modalViewMode === "snapshot" ? "rgba(56, 189, 248, 0.25)" : "transparent",
-                            color: modalViewMode === "snapshot" ? "#38bdf8" : "var(--text-dim)",
-                            border: "none",
-                            borderRadius: "6px",
-                            padding: "0.25rem 0.6rem",
-                            fontSize: "0.72rem",
-                            fontWeight: "600",
-                            cursor: "pointer",
+                          onClick={() => {
+                            setModalViewMode("snapshot");
+                            setMediaLoading(true);
+                            sound.playAction();
                           }}
+                          className={`works-modal-mode-btn ${modalViewMode === "snapshot" ? "active" : ""}`}
                         >
                           📸 Snapshot
                         </button>
@@ -652,13 +690,31 @@ export default function Works() {
 
                     {filteredWorks.length > 1 && (
                       <>
-                        <button type="button" onClick={handlePrevProject} aria-label="Previous project" className="modal-nav-btn" title="Previous (←)">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handlePrevProject();
+                            sound.playAction();
+                          }}
+                          aria-label="Previous project"
+                          className="modal-nav-btn magnetic-target"
+                          title="Previous (←)"
+                        >
                           ←
                         </button>
-                        <span style={{ fontSize: "0.75rem", opacity: 0.55, minWidth: "38px", textAlign: "center" }}>
+                        <span className="works-modal-counter">
                           {currentModalIndex + 1} / {filteredWorks.length}
                         </span>
-                        <button type="button" onClick={handleNextProject} aria-label="Next project" className="modal-nav-btn" title="Next (→)">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleNextProject();
+                            sound.playAction();
+                          }}
+                          aria-label="Next project"
+                          className="modal-nav-btn magnetic-target"
+                          title="Next (→)"
+                        >
                           →
                         </button>
                       </>
@@ -667,39 +723,39 @@ export default function Works() {
                       type="button"
                       onClick={closeModal}
                       aria-label="Close preview modal"
-                      className="modal-nav-btn"
-                      style={{ marginLeft: "0.25rem" }}
+                      className="modal-nav-btn magnetic-target"
                     >
                       ✕
                     </button>
                   </div>
                 </div>
 
-                {/* Media Container */}
-                <div
-                  style={{
-                    width: "100%",
-                    height: "clamp(240px, 55vh, 520px)",
-                    background: "#000",
-                  }}
-                >
+                {/* Media Container with Loading Skeleton */}
+                <div className="works-modal-media-wrapper">
+                  <div className={`works-modal-media-skeleton ${mediaLoading ? "" : "hidden"}`}>
+                    <div className="works-modal-spinner" />
+                    <span>Memuat pratinjau interaktif...</span>
+                  </div>
+
                   {activeProject.video_url ? (
                     activeProject.video_url.includes("youtube.com") || activeProject.video_url.includes("youtu.be") ? (
                       <iframe
-                        key={activeProject.id}
+                        key={`${activeProject.id}-yt`}
                         ref={modalIframeRef}
                         src={getEmbedUrl(activeProject.video_url)}
                         title={activeProject.title}
                         style={{ width: "100%", height: "100%", border: "none" }}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
+                        onLoad={() => setMediaLoading(false)}
                       />
                     ) : (
                       <video
-                        key={activeProject.id}
+                        key={`${activeProject.id}-vid`}
                         src={activeProject.video_url}
                         controls
                         autoPlay
+                        onLoadedData={() => setMediaLoading(false)}
                         style={{
                           width: "100%",
                           height: "100%",
@@ -709,7 +765,7 @@ export default function Works() {
                     )
                   ) : (isLiveWebsite(activeProject.project_url) || (activeProject.project_url && activeProject.project_url.includes("/embed"))) && modalViewMode === "live" ? (
                     <iframe
-                      key={activeProject.id}
+                      key={`${activeProject.id}-live`}
                       ref={modalIframeRef}
                       src={activeProject.project_url}
                       title={activeProject.title}
@@ -720,12 +776,14 @@ export default function Works() {
                         background: "#fff",
                       }}
                       sandbox="allow-scripts allow-same-origin allow-popups"
+                      onLoad={() => setMediaLoading(false)}
                     />
                   ) : (
                     <img
-                      key={activeProject.id}
+                      key={`${activeProject.id}-img`}
                       src={activeProject.auto_thumbnail || activeProject.image_url || "/Resources/thumbnail-sharing.png"}
                       alt={activeProject.title}
+                      onLoad={() => setMediaLoading(false)}
                       style={{
                         width: "100%",
                         height: "100%",
@@ -735,33 +793,34 @@ export default function Works() {
                   )}
                 </div>
 
-                <div
-                  style={{
-                    padding: "1.2rem 2rem",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    background: "rgba(0,0,0,0.4)",
-                  }}
-                >
-                  <span style={{ fontSize: "0.75rem", opacity: 0.45 }}>Press ← → to navigate, ESC to close</span>
-                  <a
-                    href={activeProject.project_url ? activeProject.project_url.replace(/\/embed\/?$/, "/") : "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "#fff",
-                      textDecoration: "none",
-                      background: "rgba(255,255,255,0.1)",
-                      padding: "0.6rem 1.5rem",
-                      borderRadius: "6px",
-                      fontSize: "0.85rem",
-                      border: "1px solid rgba(255,255,255,0.15)",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Buka Link Asli ↗
-                  </a>
+                {/* Body: Description & Tech Stack Pills */}
+                <div className="works-modal-body">
+                  <p className="works-modal-description">
+                    {activeProject.description || "Solusi digital berkinerja tinggi yang dirancang dengan perpaduan keindahan visual, interaktivitas modern, dan arsitektur kode yang efisien."}
+                  </p>
+                  <div className="works-modal-tags">
+                    {getProjectTechTags(activeProject).map((tag, idx) => (
+                      <span key={idx} className="works-modal-tag-pill">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="works-modal-footer">
+                  <span className="works-modal-hint">Press ← → to navigate, ESC to close</span>
+                  {activeProject.project_url && (
+                    <a
+                      href={activeProject.project_url.replace(/\/embed\/?$/, "/")}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="works-modal-cta magnetic-target"
+                    >
+                      <span>Buka Link Asli</span>
+                      <span>↗</span>
+                    </a>
+                  )}
                 </div>
               </div>
             )}

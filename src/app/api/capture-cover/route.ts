@@ -174,11 +174,12 @@ export async function POST(req: NextRequest) {
       size_kb: sizeKb,
       message: `Instant WebP cover generated (${sizeKb} KB)!`,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Failed to generate cover from URL.";
     return NextResponse.json(
       {
         status: "error",
-        message: err?.message || "Failed to generate cover from URL.",
+        message: errorMsg,
       },
       { status: 500 },
     );

@@ -5,9 +5,21 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
+interface CapabilityItem {
+  id?: number;
+  title: string;
+  description: string;
+}
+
+interface TechIconItem {
+  id?: number;
+  title?: string;
+  image_url: string;
+}
+
 export default function Skills() {
-  const [capabilities, setCapabilities] = useState<any[]>([]);
-  const [techIcons, setTechIcons] = useState<any[]>([]);
+  const [capabilities, setCapabilities] = useState<CapabilityItem[]>([]);
+  const [techIcons, setTechIcons] = useState<TechIconItem[]>([]);
   const [loading, setLoading] = useState(true);
   const gridRef = useRef<HTMLDivElement>(null);
 

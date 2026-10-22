@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   authors: [{ name: "Izer" }],
 
   other: {
-    "Content-Security-Policy": "upgrade-insecure-requests",
+    ...(process.env.NODE_ENV === "production" ? { "Content-Security-Policy": "upgrade-insecure-requests" } : {}),
   },
 
   openGraph: {

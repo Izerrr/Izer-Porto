@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { sound } from "../utils/sound";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -13,6 +15,7 @@ interface PortfolioItem {
   image_url?: string;
   project_url?: string;
   video_url?: string;
+  content?: string;
 }
 
 const CATEGORIES = [
@@ -36,7 +39,8 @@ export default function AdminPage() {
   const [reordering, setReordering] = useState(false);
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleteModalItem, setDeleteModalItem] = useState<PortfolioItem | null>(null);
+  const [previewAssetUrl, setPreviewAssetUrl] = useState<string | null>(null);
 
   // Toast / Feedback state
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -92,7 +96,23 @@ export default function AdminPage() {
     verifyAuth();
   }, [router]);
 
-  // Fetch data
+  // Reset Form
+  const resetForm = useCallback((cat?: string | unknown) => {
+    const targetCat = typeof cat === "string" ? cat : selectedCategory;
+    setForm({
+      id: null,
+      title: "",
+      description: "",
+      category: targetCat,
+      project_category: "Web Development",
+      date_range: "",
+      image_url: "",
+      project_url: "",
+      video_url: "",
+    });
+  }, [selectedCategory]);
+
+  // Fetch data on demand
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=${selectedCategory}`, {
@@ -115,25 +135,38 @@ export default function AdminPage() {
     }
   }, [selectedCategory, router]);
 
+  // Sync data on category change (async in callback)
   useEffect(() => {
-    fetchData();
-    resetForm();
-    setSearchQuery("");
-    setConfirmDeleteId(null);
-  }, [selectedCategory, fetchData]);
+    let ignore = false;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=${selectedCategory}`, {
+      credentials: "include",
+    })
+      .then((res) => {
+        if (res.status === 401 || res.status === 403) {
+          router.replace("/login");
+          return null;
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (!ignore && Array.isArray(data)) {
+          setDataList(data);
+        }
+      })
+      .catch((err) => {
+        console.error("API error:", err);
+      });
 
-  const resetForm = () => {
-    setForm({
-      id: null,
-      title: "",
-      description: "",
-      category: selectedCategory,
-      project_category: "Web Development",
-      date_range: "",
-      image_url: "",
-      project_url: "",
-      video_url: "",
-    });
+    return () => {
+      ignore = true;
+    };
+  }, [selectedCategory, router]);
+
+  const handleCategorySelect = (catId: string) => {
+    setSelectedCategory(catId);
+    resetForm(catId);
+    setSearchQuery("");
+
   };
 
   // Filtered list by search query
@@ -259,7 +292,7 @@ export default function AdminPage() {
       if (result.status === "success") {
         showToast("Item deleted successfully! ✓");
         if (form.id === id) resetForm();
-        setConfirmDeleteId(null);
+    
         fetchData();
       } else {
         showToast("Delete failed: " + (result.message || "Unknown error"), "error");
@@ -271,7 +304,7 @@ export default function AdminPage() {
   };
 
   // Populate form for editing
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: PortfolioItem) => {
     setForm({
       id: item.id || null,
       title: item.title || "",
@@ -527,7 +560,7 @@ export default function AdminPage() {
               <button
                 key={cat.id}
                 type="button"
-                onClick={() => setSelectedCategory(cat.id)}
+                onClick={() => handleCategorySelect(cat.id)}
                 className="magnetic-target"
                 style={{
                   display: "inline-flex",
@@ -597,7 +630,25 @@ export default function AdminPage() {
               )}
             </div>
 
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+            {form.id !== null && (
+  <div className="admin-editing-banner">
+    <div className="admin-editing-label">
+      <span>✏️</span>
+      <span>Sedang Mengedit: <strong>{form.title || `Item #${form.id}`}</strong></span>
+    </div>
+    <button
+      type="button"
+      onClick={() => {
+        sound.playAction();
+        resetForm();
+      }}
+      className="admin-btn-cancel-edit"
+    >
+      ✕ Batal & Tambah Baru
+    </button>
+  </div>
+)}
+<form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
               {selectedCategory !== "about_images" && (
                 <div>
                   <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "var(--text-dim)", marginBottom: "0.35rem" }}>
@@ -787,7 +838,7 @@ export default function AdminPage() {
                         )}
                       </div>
                     ) : (
-                      <p style={{ fontSize: "0.78rem", opacity: 0.35, margin: "1rem 0" }}>Paste a Project URL and click "⚡ Generate Instant Cover"</p>
+                      <p style={{ fontSize: "0.78rem", opacity: 0.35, margin: "1rem 0" }}>Paste a Project URL and click &quot;⚡ Generate Instant Cover&quot;</p>
                     )}
                   </div>
                 </>
@@ -864,7 +915,7 @@ export default function AdminPage() {
                   const prevItem = masterIdx > 0 ? dataList[masterIdx - 1] : null;
                   const nextItem = masterIdx >= 0 && masterIdx < dataList.length - 1 ? dataList[masterIdx + 1] : null;
                   const isCurrentEditing = Number(form.id) === itemId;
-                  const isConfirmingDelete = Number(confirmDeleteId) === itemId;
+                  // isCurrentEditing indicates active editing row
 
                   return (
                     <div
@@ -974,7 +1025,8 @@ export default function AdminPage() {
                           <img
                             src={item.image_url || "/placeholder.jpg"}
                             alt={item.title || "Icon"}
-                            style={{ width: "100%", height: "100%", objectFit: "contain", padding: "2px" }}
+                            style={{ width: "100%", height: "100%", objectFit: "contain", padding: "2px", cursor: "zoom-in" }}
+ onClick={() => { if (item.image_url) { sound.playModalOpen(); setPreviewAssetUrl(item.image_url); } }}
                             onError={(e) => {
                               (e.target as HTMLElement).style.display = "none";
                             }}
@@ -1054,60 +1106,27 @@ export default function AdminPage() {
                           CLONE
                         </button>
 
-                        {isConfirmingDelete ? (
-                          <div style={{ display: "flex", gap: "3px" }}>
-                            <button
-                              type="button"
-                              onClick={() => item.id && executeDelete(item.id)}
-                              style={{
-                                color: "#ffffff",
-                                background: "#ef4444",
-                                border: "none",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "0.7rem",
-                                fontWeight: "700",
-                                padding: "0.32rem 0.6rem",
-                              }}
-                            >
-                              YES
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setConfirmDeleteId(null)}
-                              style={{
-                                color: "var(--text-dim)",
-                                background: "rgba(255, 255, 255, 0.08)",
-                                border: "none",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "0.7rem",
-                                padding: "0.32rem 0.5rem",
-                              }}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => item.id && setConfirmDeleteId(item.id)}
-                            className="magnetic-target"
-                            title="Delete this item"
-                            style={{
-                              color: "#ff4d4d",
-                              background: "rgba(255, 77, 77, 0.08)",
-                              border: "1px solid rgba(255, 77, 77, 0.2)",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              fontSize: "0.72rem",
-                              fontWeight: "700",
-                              padding: "0.32rem 0.6rem",
-                            }}
-                          >
-                            DEL
-                          </button>
-                        )}
+                        <button
+  type="button"
+  onClick={() => {
+    sound.playModalOpen();
+    setDeleteModalItem(item);
+  }}
+  className="magnetic-target"
+  title="Delete this item"
+  style={{
+    color: "#ff4d4d",
+    background: "rgba(255, 77, 77, 0.08)",
+    border: "1px solid rgba(255, 77, 77, 0.2)",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "0.72rem",
+    fontWeight: "700",
+    padding: "0.32rem 0.6rem",
+  }}
+>
+  DEL
+</button>
                       </div>
                     </div>
                   );
@@ -1134,6 +1153,86 @@ export default function AdminPage() {
           }
         }
       `}</style>
+          {/* Delete Confirmation Modal Dialog */}
+      {deleteModalItem &&
+        createPortal(
+          <div
+            className="admin-modal-backdrop"
+            onClick={() => {
+              sound.playModalClose();
+              setDeleteModalItem(null);
+            }}
+          >
+            <div
+              className="admin-modal-dialog"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <div className="admin-modal-icon-badge">⚠️</div>
+                <div>
+                  <h3 className="admin-modal-title">Hapus Data Ini?</h3>
+                  <p className="admin-modal-desc">
+                    Tindakan ini permanen dan akan menghapus data langsung dari database.
+                  </p>
+                </div>
+              </div>
+
+              <div className="admin-modal-target-box">
+                <span style={{ fontSize: "0.72rem", opacity: 0.6, display: "block", textTransform: "uppercase", marginBottom: "0.2rem" }}>
+                  Target #{deleteModalItem.id} ({selectedCategory})
+                </span>
+                <span style={{ fontSize: "0.95rem", fontWeight: "700" }}>
+                  {deleteModalItem.title || deleteModalItem.image_url || `ID #${deleteModalItem.id}`}
+                </span>
+              </div>
+
+              <div className="admin-modal-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playModalClose();
+                    setDeleteModalItem(null);
+                  }}
+                  className="admin-btn-cancel"
+                >
+                  Batal (ESC)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playAction();
+                    if (deleteModalItem.id) executeDelete(deleteModalItem.id);
+                    setDeleteModalItem(null);
+                  }}
+                  className="admin-btn-danger"
+                >
+                  Ya, Hapus Data
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Asset Lightbox Modal */}
+      {previewAssetUrl &&
+        createPortal(
+          <div
+            className="admin-lightbox-backdrop"
+            onClick={() => {
+              sound.playModalClose();
+              setPreviewAssetUrl(null);
+            }}
+          >
+            <img
+              src={previewAssetUrl}
+              alt="Asset Preview"
+              className="admin-lightbox-image"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>,
+          document.body,
+        )}
     </main>
   );
 }

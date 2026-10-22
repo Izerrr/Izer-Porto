@@ -18,7 +18,7 @@ export default function Footer() {
   return (
     <footer id="contact" className="lando-footer">
       <div className="footer-content">
-        <h2 className="footer-heading kinetic-reveal">Let's collaborate.</h2>
+        <h2 className="footer-heading kinetic-reveal">Let&apos;s collaborate.</h2>
         <p className="footer-sub">Terbuka untuk ngobrolin project IT, kolaborasi multimedia, atau sekadar lari bareng pagi-pagi.</p>
         <div className="footer-action" style={{ display: "flex", gap: "1rem", justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
           <a href={`mailto:${email}`} className="btn-primary magnetic-target">

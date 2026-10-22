@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import gsap from "gsap";
 import Lenis from "@studio-freight/lenis";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { sound } from "../utils/sound";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -38,7 +39,7 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
     gsap.ticker.add(updateLenis);
     gsap.ticker.lagSmoothing(500, 33);
 
-    const handleScroll = (e: any) => lenis.scrollTo(e.detail, { duration: 1.4 });
+    const handleScroll = (e: Event) => lenis.scrollTo((e as CustomEvent).detail, { duration: 1.4 });
     window.addEventListener("lenis-scroll", handleScroll);
 
     /* 2. Accurate Pointer Detection */
@@ -97,6 +98,7 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
 
       const target = el.closest("a, button, .magnetic-target, [role='button'], .slider-dot");
       if (target) {
+        sound.playHover();
         if (target.classList.contains("work-link-wrapper")) {
           gsap.to(targetCursor, { scale: 2.2, opacity: 0.4, duration: 0.3, overwrite: "auto" });
         } else {
@@ -130,6 +132,14 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
     window.addEventListener("mousemove", moveCursor, { passive: true });
     document.addEventListener("mouseleave", hideCursor);
     window.addEventListener("touchstart", hideCursor, { passive: true });
+    const handleClick = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && el.closest("button, a, .magnetic-target, [role='button'], .slider-dot")) {
+        sound.playAction();
+      }
+    };
+
+    window.addEventListener("click", handleClick);
     window.addEventListener("mouseover", handleOver, { passive: true });
     window.addEventListener("mouseout", handleOut, { passive: true });
 
@@ -138,6 +148,7 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
       window.removeEventListener("mousemove", moveCursor);
       document.removeEventListener("mouseleave", hideCursor);
       window.removeEventListener("touchstart", hideCursor);
+      window.removeEventListener("click", handleClick);
       window.removeEventListener("mouseover", handleOver);
       window.removeEventListener("mouseout", handleOut);
 
