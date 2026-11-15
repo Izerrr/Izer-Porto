@@ -69,6 +69,19 @@ export default function Hero() {
             scrub: 1,
           },
         });
+
+        gsap.to(".hero-visual-box", {
+          scale: 0.965,
+          y: 18,
+          opacity: 0.72,
+          ease: "none",
+          scrollTrigger: {
+            trigger: ".hero-section",
+            start: "top top",
+            end: "bottom top",
+            scrub: true,
+          },
+        });
       }
     });
 

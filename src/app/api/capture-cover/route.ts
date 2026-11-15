@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-import net from "net";
-import dns from "dns/promises";
 import sharp from "sharp";
+import {
+  isAuthenticatedAdmin,
+  isKnownProjectUrl,
+  isSafePublicUrl,
+  normalizeTargetUrl,
+  probeEmbedAllowed,
+} from "@/app/lib/url-safety";
 
 const COVERS_DIR = path.join(process.cwd(), "public", "Resources", "works_covers");
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB hard cap to prevent OOM
@@ -14,146 +19,6 @@ async function ensureDir() {
     await fs.mkdir(COVERS_DIR, { recursive: true });
   } catch {
     // Directory already exists
-  }
-}
-
-function normalizeTargetUrl(rawUrl: string): string {
-  let clean = rawUrl.trim();
-  const thumMatch = clean.match(/image\.thum\.io\/get\/.*?(https?:\/\/.+)$/i);
-  if (thumMatch && thumMatch[1]) {
-    clean = thumMatch[1];
-  }
-  if (!/^https?:\/\//i.test(clean)) {
-    clean = `https://${clean}`;
-  }
-  return clean;
-}
-
-function isPrivateIpAddress(ip: string): boolean {
-  const normalized = ip.toLowerCase().replace(/^::ffff:/, "");
-
-  if (net.isIPv4(normalized)) {
-    const parts = normalized.split(".").map((n) => parseInt(n, 10));
-    if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return true;
-    const [a, b] = parts;
-    if (a === 0 || a === 10 || a === 127) return true; // 0.0.0.0/8, 10/8, 127/8
-    if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local & cloud metadata
-    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
-    if (a === 192 && b === 168) return true; // 192.168.0.0/16
-    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
-    if (a >= 224) return true; // multicast & reserved
-    return false;
-  }
-
-  if (net.isIPv6(ip)) {
-    const clean = ip.toLowerCase();
-    if (clean === "::1" || clean === "::") return true;
-    if (clean.startsWith("fe80:") || clean.startsWith("fc") || clean.startsWith("fd")) return true;
-    return false;
-  }
-
-  return true;
-}
-
-async function isSafePublicUrl(urlStr: string): Promise<boolean> {
-  let parsed: URL;
-  try {
-    parsed = new URL(urlStr);
-  } catch {
-    return false;
-  }
-
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return false;
-  }
-  if (parsed.username || parsed.password) {
-    return false;
-  }
-
-  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (!hostname) return false;
-
-  const blockedSuffixes = [".local", ".internal", ".localhost", ".arpa"];
-  if (
-    hostname === "localhost" ||
-    blockedSuffixes.some((suffix) => hostname.endsWith(suffix))
-  ) {
-    return false;
-  }
-
-  if (net.isIP(hostname)) {
-    return !isPrivateIpAddress(hostname);
-  }
-
-  try {
-    const resolved = await dns.lookup(hostname, { all: true });
-    if (!resolved || resolved.length === 0) return false;
-    return resolved.every((entry) => !isPrivateIpAddress(entry.address));
-  } catch {
-    return false;
-  }
-}
-
-async function isAuthenticatedAdmin(req: NextRequest): Promise<boolean> {
-  const token =
-    req.cookies.get("admin_token")?.value ||
-    req.headers.get("x-admin-token") ||
-    "";
-  if (!token) return false;
-
-  const apiBase = process.env.ADMIN_API_URL || process.env.NEXT_PUBLIC_API_URL;
-  if (!apiBase) return false;
-
-  try {
-    const res = await fetch(`${apiBase}/auth_check.php`, {
-      method: "GET",
-      headers: {
-        "X-Admin-Token": token,
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(4000),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-function canonicalHostPath(urlStr: string): string {
-  try {
-    const u = new URL(normalizeTargetUrl(urlStr));
-    return `${u.hostname.toLowerCase()}${u.pathname.replace(/\/+$/, "")}${u.search}`;
-  } catch {
-    return "";
-  }
-}
-
-async function isKnownProjectUrl(targetUrl: string): Promise<boolean> {
-  const apiBase = process.env.ADMIN_API_URL || process.env.NEXT_PUBLIC_API_URL;
-  if (!apiBase) return false;
-
-  const targetKey = canonicalHostPath(targetUrl);
-  if (!targetKey) return false;
-
-  try {
-    const res = await fetch(`${apiBase}/works.php`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(4000),
-    });
-    if (!res.ok) return false;
-    const rows = (await res.json()) as Array<{
-      project_url?: string;
-      video_url?: string;
-    }>;
-    if (!Array.isArray(rows)) return false;
-
-    return rows.some((row) => {
-      const pKey = row.project_url ? canonicalHostPath(row.project_url) : "";
-      const vKey = row.video_url ? canonicalHostPath(row.video_url) : "";
-      return targetKey === pKey || targetKey === vKey;
-    });
-  } catch {
-    return false;
   }
 }
 
@@ -351,13 +216,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { publicPath, buffer } = await generateAndSaveWebP(normalizedUrl, forceRefresh);
+    const [{ publicPath, buffer }, iframeAllowed] = await Promise.all([
+      generateAndSaveWebP(normalizedUrl, forceRefresh),
+      probeEmbedAllowed(normalizedUrl),
+    ]);
     const sizeKb = Math.round((buffer.length / 1024) * 10) / 10;
 
     return NextResponse.json({
       status: "success",
       image_url: publicPath,
       size_kb: sizeKb,
+      iframe_allowed: iframeAllowed,
       message: `Instant WebP cover generated (${sizeKb} KB)!`,
     });
   } catch (err: unknown) {

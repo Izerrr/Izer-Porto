@@ -106,6 +106,7 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState<boolean>(false);
+  const [iframeAllowed, setIframeAllowed] = useState<boolean | null>(null);
   const [reordering, setReordering] = useState(false);
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);
@@ -173,6 +174,7 @@ export default function AdminPage() {
   const resetForm = useCallback(
     (cat?: string | unknown) => {
       const targetCat = typeof cat === "string" ? cat : selectedCategory;
+      setIframeAllowed(null);
       setForm({
         id: null,
         title: "",
@@ -312,11 +314,14 @@ export default function AdminPage() {
   }, [dataList, searchQuery]);
 
   // Generate Instant WebP Cover from Website URL without manual screenshot
-  const handleGenerateInstantCover = async (targetUrl?: string, forceRefresh = false) => {
+  const handleGenerateInstantCover = async (
+    targetUrl?: string,
+    forceRefresh = false,
+  ): Promise<string | null> => {
     const url = (targetUrl ?? form.project_url ?? "").trim();
     if (!url) {
       showToast("Masukkan Project Link (URL) terlebih dahulu!", "error");
-      return;
+      return null;
     }
 
     const ytRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -324,12 +329,14 @@ export default function AdminPage() {
 
     if (ytMatch && ytMatch[2].length === 11) {
       const videoId = ytMatch[2];
+      const ytThumb = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      setIframeAllowed(true);
       setForm((prev) => ({
         ...prev,
-        image_url: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+        image_url: ytThumb,
       }));
       showToast("YouTube HD Cover applied!");
-      return;
+      return ytThumb;
     }
 
     setLoadingPreview(true);
@@ -342,39 +349,66 @@ export default function AdminPage() {
       });
       const json = await res.json();
 
+      if (typeof json.iframe_allowed === "boolean") {
+        setIframeAllowed(json.iframe_allowed);
+      }
+
       if (res.ok && json.status === "success" && json.image_url) {
         setForm((prev) => ({ ...prev, image_url: json.image_url }));
         showToast(json.message || "Instant WebP Cover generated!");
-      } else {
-        setForm((prev) => ({
-          ...prev,
-          image_url: `/api/capture-cover?url=${encodeURIComponent(url)}`,
-        }));
-        showToast("Cover linked via instant proxy!");
+        return json.image_url as string;
       }
-    } catch {
+
+      const proxyUrl = `/api/capture-cover?url=${encodeURIComponent(url)}`;
       setForm((prev) => ({
         ...prev,
-        image_url: `/api/capture-cover?url=${encodeURIComponent(url)}`,
+        image_url: proxyUrl,
       }));
+      showToast("Cover linked via instant proxy!");
+      return proxyUrl;
+    } catch {
+      const proxyUrl = `/api/capture-cover?url=${encodeURIComponent(url)}`;
+      setForm((prev) => ({
+        ...prev,
+        image_url: proxyUrl,
+      }));
+      return proxyUrl;
     } finally {
       setLoadingPreview(false);
     }
   };
 
-  // Submit data (Add or Edit)
+  // Submit data (Add or Edit) — auto-captures local WebP cover for live Works sites if missing
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const endpoint = form.id ? "edit_data.php" : "add_data.php";
 
     try {
+      let resolvedImageUrl = form.image_url || "";
+      const projectUrl = (form.project_url || "").trim();
+      const needsAutoCover =
+        selectedCategory === "works" &&
+        Boolean(projectUrl) &&
+        !projectUrl.toLowerCase().includes("instagram.com") &&
+        (!resolvedImageUrl.trim() ||
+          resolvedImageUrl.includes("image.thum.io") ||
+          resolvedImageUrl.startsWith("/api/capture-cover"));
+
+      if (needsAutoCover) {
+        const captured = await handleGenerateInstantCover(projectUrl, false);
+        if (captured) {
+          resolvedImageUrl = captured;
+        }
+      }
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           ...form,
+          image_url: resolvedImageUrl,
           category: selectedCategory,
           project_category: form.project_category || "Web Development",
         }),
@@ -941,13 +975,31 @@ export default function AdminPage() {
                       className="glass-card admin-input"
                       style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", fontSize: "0.9rem" }}
                       value={form.project_url || ""}
-                      onChange={(e) => setForm({ ...form, project_url: e.target.value })}
+                      onChange={(e) => {
+                        setIframeAllowed(null);
+                        setForm({ ...form, project_url: e.target.value });
+                      }}
                       onBlur={(e) => {
                         if (e.target.value && !form.image_url) {
-                          handleGenerateInstantCover(e.target.value, false);
+                          void handleGenerateInstantCover(e.target.value, false);
                         }
                       }}
                     />
+                    {iframeAllowed !== null && (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          marginTop: "0.35rem",
+                          fontSize: "0.68rem",
+                          fontWeight: "600",
+                          color: iframeAllowed ? "#4ade80" : "#38bdf8",
+                        }}
+                      >
+                        {iframeAllowed
+                          ? "✓ Live Embed Compatible"
+                          : "Snapshot Auto-Safe (situs memblokir iframe eksternal)"}
+                      </span>
+                    )}
                   </div>
 
                   <div>

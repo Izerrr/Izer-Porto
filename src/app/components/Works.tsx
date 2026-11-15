@@ -12,6 +12,8 @@ import { createPortal } from "react-dom";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { sound } from "../utils/sound";
+import { copyToClipboard, showHudToast } from "../utils/clipboard";
+import { extractDomainHost, resolveWorkDemoVideo } from "../data/works-demos";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -26,6 +28,8 @@ interface Project {
   auto_thumbnail?: string;
   tags?: string[];
 }
+
+type ModalViewMode = "demo" | "live" | "snapshot";
 
 /* Helper: Force HTTPS untuk cegah Mixed Content */
 const ensureHttps = (url: string | null | undefined): string => {
@@ -48,6 +52,12 @@ const isLiveWebsite = (url: string | null | undefined): boolean => {
     "youtu.be",
   ];
   return !socialDomains.some((domain) => url.toLowerCase().includes(domain));
+};
+
+/* Helper: Check YouTube link */
+const isYouTubeUrl = (url: string | null | undefined): boolean => {
+  if (!url) return false;
+  return url.includes("youtube.com") || url.includes("youtu.be");
 };
 
 /* Helper: Extract or Infer Tech Stack tags */
@@ -73,53 +83,61 @@ export const getProjectTechTags = (item: Project): string[] => {
   return Array.from(new Set(tags)).slice(0, 4);
 };
 
-/* Helper: Check direct video file */
-const isDirectVideoFile = (url: string | null | undefined): boolean => {
-  if (!url || url.trim() === "") return false;
-  return /\.(mp4|webm|ogg|mov)($|\?)/i.test(url.trim());
-};
-
-/* Component Sub-Item per Card dengan Smart Intent Hover & Memory Cleanup */
+/* Card Sub-Item: 0 KB video at rest, lazy hover-intent video showcase, Ken Burns fallback */
 function WorkCardItem({ item, onSelect }: { item: Project; onSelect: (p: Project) => void }) {
   const [isHovered, setIsHovered] = useState(false);
-  const [showLiveIframe, setShowLiveIframe] = useState(false);
+  const [videoMounted, setVideoMounted] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const isDirectVideo = isDirectVideoFile(item.video_url);
-  const canEmbedLiveIframe = isLiveWebsite(item.project_url);
-  const displayCategory = item.category && item.category.toLowerCase() !== "works" ? item.category : "Featured Project";
+  const demoVideoSrc = useMemo(
+    () => resolveWorkDemoVideo(item.project_url, item.video_url),
+    [item.project_url, item.video_url],
+  );
+  const displayCategory =
+    item.category && item.category.toLowerCase() !== "works" ? item.category : "Featured Project";
 
-  const handleMouseEnter = () => {
+  const activateHover = () => {
     setIsHovered(true);
-    if (canEmbedLiveIframe && typeof window !== "undefined" && window.innerWidth > 768) {
+    if (typeof window === "undefined") return;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced || !demoVideoSrc) return;
+
+    if (window.innerWidth > 768) {
       hoverTimerRef.current = setTimeout(() => {
-        setShowLiveIframe(true);
-      }, 420);
+        setVideoMounted(true);
+        if (videoRef.current) {
+          void videoRef.current.play().catch(() => {});
+        }
+      }, 150);
     }
   };
 
-  const handleMouseLeave = () => {
+  const deactivateHover = () => {
     setIsHovered(false);
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
     }
-    if (iframeRef.current) {
-      try {
-        iframeRef.current.src = "about:blank";
-      } catch {
-        // Ignore cross-origin frame reset errors
-      }
+    if (videoRef.current) {
+      videoRef.current.pause();
     }
-    setShowLiveIframe(false);
   };
+
+  useEffect(() => {
+    if (videoMounted && isHovered && videoRef.current) {
+      void videoRef.current.play().catch(() => {});
+    }
+  }, [videoMounted, isHovered]);
 
   useEffect(() => {
     return () => {
       if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     };
   }, []);
+
+  const showKenBurns = isHovered && !demoVideoSrc;
 
   return (
     <a
@@ -129,23 +147,47 @@ function WorkCardItem({ item, onSelect }: { item: Project; onSelect: (p: Project
       className="work-link-wrapper"
       style={{ flexShrink: 0 }}
       draggable={false}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={activateHover}
+      onMouseLeave={deactivateHover}
+      onFocus={() => setIsHovered(true)}
+      onBlur={deactivateHover}
       onClick={(e) => {
         e.preventDefault();
         onSelect(item);
       }}
     >
       <div className="glass-card elegant-work-card" style={{ position: "relative", overflow: "hidden" }}>
-        {/* Direct Video Background */}
-        {item.video_url && isDirectVideo ? (
+        {/* Static WebP Cover Poster (Always rendered immediately at 0 video bandwidth) */}
+        <div
+          className={`work-image-bg ${showKenBurns ? "ken-burns-active" : ""}`}
+          style={{
+            backgroundImage: `url('${item.auto_thumbnail}')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            position: "absolute",
+            inset: 0,
+            zIndex: 0,
+          }}
+        />
+
+        {/* Lazy Hover-Activated Showcase Video (Mounts strictly on hover intent, preloads nothing at rest) */}
+        {demoVideoSrc && videoMounted && (
           <video
-            src={item.video_url}
-            autoPlay
+            ref={videoRef}
+            width={1280}
+            height={800}
             muted
             loop
             playsInline
-            preload="metadata"
+            preload="none"
+            poster={item.auto_thumbnail}
+            aria-hidden="true"
+            onCanPlay={() => {
+              setVideoReady(true);
+              if (isHovered && videoRef.current) {
+                void videoRef.current.play().catch(() => {});
+              }
+            }}
             className="work-video-bg"
             style={{
               position: "absolute",
@@ -153,74 +195,37 @@ function WorkCardItem({ item, onSelect }: { item: Project; onSelect: (p: Project
               width: "100%",
               height: "100%",
               objectFit: "cover",
-              zIndex: 0,
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              zIndex: 0,
+              zIndex: 1,
+              opacity: isHovered && videoReady ? 1 : 0,
+              transition: "opacity 0.38s cubic-bezier(0.16, 1, 0.3, 1)",
+              pointerEvents: "none",
             }}
           >
-            {/* Static WebP Cover Thumbnail */}
-            <div
-              className="work-image-bg"
-              style={{
-                backgroundImage: `url('${item.auto_thumbnail}')`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                position: "absolute",
-                inset: 0,
-                zIndex: 1,
-                opacity: showLiveIframe && canEmbedLiveIframe ? 0 : 1,
-                transition: "opacity 0.4s ease",
-              }}
-            />
-
-            {/* Smart Debounced Live Iframe (Only mounts on intentional hover > 420ms & cleans up on leave) */}
-            {canEmbedLiveIframe && showLiveIframe && (
-              <iframe
-                ref={iframeRef}
-                src={item.project_url}
-                title={item.title}
-                className="work-live-iframe"
-                loading="lazy"
-                style={{
-                  width: "300%",
-                  height: "300%",
-                  border: "none",
-                  position: "absolute",
-                  inset: 0,
-                  transform: "scale(0.33333)",
-                  transformOrigin: "top left",
-                  pointerEvents: "none",
-                  zIndex: 2,
-                  opacity: 1,
-                  transition: "opacity 0.4s ease",
-                }}
-                sandbox="allow-scripts allow-forms allow-popups"
-              />
-            )}
-          </div>
+            <source src={demoVideoSrc} />
+          </video>
         )}
 
-        {/* Gradient Overlay */}
+        {/* Midnight Vignette Overlay */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(to bottom, rgba(5, 10, 20, 0.15), rgba(5, 10, 20, 0.82))",
+            background: "linear-gradient(to bottom, rgba(5, 10, 20, 0.14), rgba(5, 10, 20, 0.84))",
             zIndex: 3,
+            pointerEvents: "none",
           }}
         />
 
         {/* Preview Badge Cue */}
         <div className={`work-preview-badge ${isHovered ? "visible" : ""}`}>
-          <span>Preview ↗</span>
+          {demoVideoSrc ? (
+            <>
+              <span className="work-preview-dot" aria-hidden="true" />
+              <span>Demo Preview</span>
+            </>
+          ) : (
+            <span>Preview ↗</span>
+          )}
         </div>
 
         {/* Card Content */}
@@ -255,10 +260,13 @@ export default function Works() {
   );
   const [isDragging, setIsDragging] = useState(false);
   const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
-  const [modalViewMode, setModalViewMode] = useState<"live" | "snapshot">("live");
+  const [modalViewMode, setModalViewMode] = useState<ModalViewMode>("snapshot");
+  const [embedStatusMap, setEmbedStatusMap] = useState<Record<string, boolean>>({});
+  const [copiedProjectLink, setCopiedProjectLink] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
+  const progressFillRef = useRef<HTMLDivElement>(null);
   const modalIframeRef = useRef<HTMLIFrameElement | null>(null);
   const tablistRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -288,7 +296,6 @@ export default function Works() {
             let thumb = item.image_url ? ensureHttps(item.image_url) : null;
             const video = ensureHttps(item.video_url || null);
 
-            // Normalize category if legacy "works" value exists
             let cleanCategory = item.category ? item.category.trim() : "Web Development";
             if (!cleanCategory || cleanCategory.toLowerCase() === "works") {
               if (item.title.toLowerCase().startsWith("video") || projectUrl.includes("/reel/")) {
@@ -300,24 +307,19 @@ export default function Works() {
               }
             }
 
-            // Upgrade legacy external thum.io URLs to local cached WebP cover endpoint
             if (thumb && thumb.includes("image.thum.io")) {
               thumb = `/api/capture-cover?url=${encodeURIComponent(projectUrl || thumb)}`;
             }
 
-            // 1. YouTube video thumbnail fallback
-            if (video && (video.includes("youtube.com") || video.includes("youtu.be"))) {
+            if (video && isYouTubeUrl(video)) {
               const match = video.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
               if (match && match[2].length === 11) {
                 thumb = `https://img.youtube.com/vi/${match[2]}/maxresdefault.jpg`;
               }
-            }
-            // 2. Instant cached WebP website screenshot fallback
-            else if (!thumb && isLiveWebsite(projectUrl)) {
+            } else if (!thumb && isLiveWebsite(projectUrl)) {
               thumb = `/api/capture-cover?url=${encodeURIComponent(projectUrl)}`;
             }
 
-            // 3. Default local image fallback
             if (!thumb) {
               thumb = "/Resources/thumbnail-sharing.png";
             }
@@ -337,21 +339,18 @@ export default function Works() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to load API:", err);
+        console.warn("Failed to load API:", err);
         setLoading(false);
       });
   }, []);
 
-  /* Extract Dynamic Categories and Tech Tags */
   const categories = useMemo(() => {
     const unique = Array.from(new Set(works.map((w) => w.category).filter(Boolean)));
     return ["All", ...unique];
   }, [works]);
 
   const filteredWorks = useMemo(() => {
-    return works.filter((w) => {
-      return selectedCategory === "All" || w.category === selectedCategory;
-    });
+    return works.filter((w) => selectedCategory === "All" || w.category === selectedCategory);
   }, [works, selectedCategory]);
 
   const currentModalIndex = useMemo(() => {
@@ -359,22 +358,83 @@ export default function Works() {
     return filteredWorks.findIndex((w) => w.id === activeProject.id);
   }, [activeProject, filteredWorks]);
 
+  /* Resolve initial modal view mode safely & probe X-Frame-Options/CSP when needed */
+  const resolveAndSetModalProject = useCallback(
+    async (project: Project) => {
+      setCopiedProjectLink(false);
+      setMediaLoading(true);
+      setActiveProject(project);
+
+      const demoVideo = resolveWorkDemoVideo(project.project_url, project.video_url);
+      const hasYt = isYouTubeUrl(project.video_url);
+
+      if (demoVideo || hasYt) {
+        setModalViewMode("demo");
+        return;
+      }
+
+      if (project.project_url?.includes("/embed")) {
+        setModalViewMode("live");
+        return;
+      }
+
+      if (isLiveWebsite(project.project_url)) {
+        const targetUrl = project.project_url;
+        if (targetUrl in embedStatusMap) {
+          setModalViewMode(embedStatusMap[targetUrl] ? "live" : "snapshot");
+          return;
+        }
+
+        // Hold on snapshot immediately so a blocked site never flashes a broken frame while probing
+        setModalViewMode("snapshot");
+        try {
+          const res = await fetch(`/api/probe-embed?url=${encodeURIComponent(targetUrl)}`);
+          if (res.ok) {
+            const json = (await res.json()) as { iframe_allowed?: boolean };
+            const allowed = Boolean(json.iframe_allowed);
+            setEmbedStatusMap((prev) => ({ ...prev, [targetUrl]: allowed }));
+            if (allowed) {
+              setActiveProject((current) => {
+                if (current && current.id === project.id) {
+                  setMediaLoading(true);
+                  setModalViewMode("live");
+                }
+                return current;
+              });
+            }
+          } else {
+            setEmbedStatusMap((prev) => ({ ...prev, [targetUrl]: false }));
+          }
+        } catch {
+          setEmbedStatusMap((prev) => ({ ...prev, [targetUrl]: false }));
+        }
+        return;
+      }
+
+      setModalViewMode("snapshot");
+    },
+    [embedStatusMap],
+  );
+
   const handlePrevProject = useCallback(() => {
     if (filteredWorks.length === 0) return;
     const prevIdx = currentModalIndex > 0 ? currentModalIndex - 1 : filteredWorks.length - 1;
-    setActiveProject(filteredWorks[prevIdx]);
-  }, [currentModalIndex, filteredWorks]);
+    void resolveAndSetModalProject(filteredWorks[prevIdx]);
+  }, [currentModalIndex, filteredWorks, resolveAndSetModalProject]);
 
   const handleNextProject = useCallback(() => {
     if (filteredWorks.length === 0) return;
     const nextIdx = currentModalIndex < filteredWorks.length - 1 ? currentModalIndex + 1 : 0;
-    setActiveProject(filteredWorks[nextIdx]);
-  }, [currentModalIndex, filteredWorks]);
+    void resolveAndSetModalProject(filteredWorks[nextIdx]);
+  }, [currentModalIndex, filteredWorks, resolveAndSetModalProject]);
 
   const handleCategorySelect = (cat: string) => {
     setSelectedCategory(cat);
     if (scrollRef.current) {
       scrollRef.current.scrollLeft = 0;
+    }
+    if (progressFillRef.current) {
+      progressFillRef.current.style.transform = "scaleX(0)";
     }
     setMobileActiveIndex(0);
   };
@@ -402,7 +462,7 @@ export default function Works() {
     return () => ro.disconnect();
   }, [selectedCategory, categories]);
 
-  /* Track mobile horizontal scroll counter */
+  /* Scrollability affordance fallback + mobile scroll counter */
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -413,13 +473,48 @@ export default function Works() {
       const cardWidth = card.offsetWidth + 16;
       const index = Math.round(el.scrollLeft / cardWidth);
       setMobileActiveIndex(Math.min(Math.max(0, index), filteredWorks.length - 1));
+
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      if (progressFillRef.current && maxScroll > 0 && window.innerWidth <= 768) {
+        progressFillRef.current.style.transform = `scaleX(${Math.min(1, el.scrollLeft / maxScroll)})`;
+      }
     };
 
     el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => el.removeEventListener("scroll", handleScroll);
+
+    let io: IntersectionObserver | null = null;
+    if (
+      typeof CSS !== "undefined" &&
+      !CSS.supports("animation-timeline", "scroll()") &&
+      el.firstElementChild &&
+      el.lastElementChild
+    ) {
+      const first = el.firstElementChild;
+      const last = el.lastElementChild;
+      io = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.target === first) {
+              el.classList.toggle("more-start", entry.intersectionRatio < 1);
+            }
+            if (entry.target === last) {
+              el.classList.toggle("more-end", entry.intersectionRatio < 1);
+            }
+          }
+        },
+        { root: el, threshold: 1, rootMargin: "1px" },
+      );
+      io.observe(first);
+      io.observe(last);
+    }
+
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      io?.disconnect();
+    };
   }, [filteredWorks.length]);
 
-  /* 2. GSAP Horizontal Scroll Setup */
+  /* 2. GSAP Horizontal Scroll Setup (Desktop) with live hairline progress update */
   useEffect(() => {
     if (loading || filteredWorks.length === 0 || !scrollRef.current || !sectionRef.current) return;
 
@@ -428,6 +523,9 @@ export default function Works() {
     mm.add("(min-width: 769px)", () => {
       const scrollContainer = scrollRef.current as HTMLElement;
       gsap.set(scrollContainer, { x: 0 });
+      if (progressFillRef.current) {
+        progressFillRef.current.style.transform = "scaleX(0)";
+      }
 
       const getScrollAmount = () => {
         const diff = scrollContainer.scrollWidth - window.innerWidth;
@@ -450,6 +548,11 @@ export default function Works() {
           scrub: 1,
           anticipatePin: 1,
           invalidateOnRefresh: true,
+          onUpdate: (self) => {
+            if (progressFillRef.current) {
+              progressFillRef.current.style.transform = `scaleX(${self.progress})`;
+            }
+          },
         },
       });
     });
@@ -522,9 +625,7 @@ export default function Works() {
     if (dragState.current.movedDistance > 6 || touchState.current.moved) return;
     lastTriggerRef.current = document.activeElement as HTMLElement | null;
     sound.playModalOpen();
-    setMediaLoading(true);
-    setModalViewMode("live");
-    setActiveProject(project);
+    void resolveAndSetModalProject(project);
   };
 
   const closeModal = useCallback(() => {
@@ -533,9 +634,10 @@ export default function Works() {
       try {
         modalIframeRef.current.src = "about:blank";
       } catch {
-        // Ignore
+        // Ignore cross-origin cleanup error
       }
     }
+    setCopiedProjectLink(false);
     setActiveProject(null);
     requestAnimationFrame(() => {
       lastTriggerRef.current?.focus();
@@ -580,6 +682,37 @@ export default function Works() {
       return `https://www.youtube.com/embed/${match[2]}?autoplay=1`;
     }
     return ensureHttps(url);
+  };
+
+  const activeDemoVideo = activeProject
+    ? resolveWorkDemoVideo(activeProject.project_url, activeProject.video_url)
+    : null;
+  const activeIsYouTube = activeProject ? isYouTubeUrl(activeProject.video_url) : false;
+  const activeCanEmbed = activeProject
+    ? isLiveWebsite(activeProject.project_url) || Boolean(activeProject.project_url?.includes("/embed"))
+    : false;
+  const activeEmbedExplicitlyAllowed = activeProject
+    ? activeProject.project_url.includes("/embed") || embedStatusMap[activeProject.project_url] === true
+    : false;
+  const activeEmbedBlocked = activeProject
+    ? !activeProject.project_url.includes("/embed") && embedStatusMap[activeProject.project_url] === false
+    : false;
+  const activeTags = activeProject ? getProjectTechTags(activeProject) : [];
+  const activeDomain = activeProject ? extractDomainHost(activeProject.project_url) : "";
+
+  const handleCopyProjectLink = async () => {
+    if (!activeProject?.project_url) return;
+    sound.playAction();
+    const cleanUrl = activeProject.project_url.replace(/\/embed\/?$/, "/");
+    const ok = await copyToClipboard(cleanUrl);
+    if (ok) {
+      setCopiedProjectLink(true);
+      showHudToast({
+        title: "Project Link Copied",
+        subtitle: activeDomain || cleanUrl,
+      });
+      setTimeout(() => setCopiedProjectLink(false), 2200);
+    }
   };
 
   return (
@@ -654,24 +787,26 @@ export default function Works() {
           onTouchEnd={handleTouchEnd}
           style={{ display: "flex", flexWrap: "nowrap" }}
         >
-          {loading ? (
-            <p style={{ color: "var(--text-dim)", padding: "5vw" }}>Loading works...</p>
-          ) : (
-            filteredWorks.map((item) => <WorkCardItem key={item.id} item={item} onSelect={handleCardSelect} />)
-          )}
+          {filteredWorks.map((p) => (
+            <WorkCardItem key={p.id} item={p} onSelect={handleCardSelect} />
+          ))}
         </div>
 
-        {/* Mobile Swipe Counter */}
+        {/* Minimal Horizontal Scroll Affordance Rail + Mobile Counter */}
         {!loading && filteredWorks.length > 1 && (
-          <div className="works-mobile-counter">
-            <span style={{ fontWeight: "700" }}>{String(mobileActiveIndex + 1).padStart(2, "0")}</span>
-            <span className="works-counter-dim">/</span>
-            <span className="works-counter-dim">{String(filteredWorks.length).padStart(2, "0")}</span>
+          <div className="works-scroll-affordance" aria-hidden="true">
+            <div className="works-scroll-track">
+              <div ref={progressFillRef} className="works-scroll-fill" />
+            </div>
+            <div className="works-mobile-counter">
+              {String(mobileActiveIndex + 1).padStart(2, "0")}{" "}
+              <span className="works-counter-dim">/ {String(filteredWorks.length).padStart(2, "0")}</span>
+            </div>
           </div>
         )}
       </section>
 
-      {/* Refined Modal Overlay Portal with Full Accessibility & Theme Adaptability */}
+      {/* --- QUICKLOOK PROJECT PREVIEW MODAL --- */}
       {isClient &&
         createPortal(
           <div
@@ -696,35 +831,64 @@ export default function Works() {
                   </div>
 
                   <div className="works-modal-controls">
-                    {(isLiveWebsite(activeProject.project_url) ||
-                      (activeProject.project_url && activeProject.project_url.includes("/embed"))) && (
-                      <div className="works-modal-view-mode">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setModalViewMode("live");
-                            setMediaLoading(true);
-                            sound.playAction();
-                          }}
-                          className={`works-modal-mode-btn ${modalViewMode === "live" ? "active" : ""}`}
-                        >
-                          <svg
-                            aria-hidden="true"
-                            width="13"
-                            height="13"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                    {(activeDemoVideo || activeIsYouTube || activeCanEmbed) && (
+                      <div className="works-modal-view-mode" role="group" aria-label="Preview mode">
+                        {(activeDemoVideo || activeIsYouTube) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalViewMode("demo");
+                              setMediaLoading(true);
+                              sound.playAction();
+                            }}
+                            className={`works-modal-mode-btn ${modalViewMode === "demo" ? "active" : ""}`}
                           >
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M2 12h20" />
-                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                          </svg>
-                          <span>Live</span>
-                        </button>
+                            <svg
+                              aria-hidden="true"
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polygon points="5 3 19 12 5 21 5 3" />
+                            </svg>
+                            <span>Demo</span>
+                          </button>
+                        )}
+
+                        {activeCanEmbed && !activeEmbedBlocked && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalViewMode("live");
+                              setMediaLoading(true);
+                              sound.playAction();
+                            }}
+                            className={`works-modal-mode-btn ${modalViewMode === "live" ? "active" : ""}`}
+                          >
+                            <svg
+                              aria-hidden="true"
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <path d="M2 12h20" />
+                              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                            </svg>
+                            <span>Live</span>
+                          </button>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => {
@@ -796,42 +960,47 @@ export default function Works() {
                   </div>
                 </div>
 
-                {/* Media Container with Loading Skeleton */}
+                {/* Media Container with Dark Navy Loading Skeleton */}
                 <div className="works-modal-media-wrapper">
                   <div className={`works-modal-media-skeleton ${mediaLoading ? "" : "hidden"}`}>
                     <div className="works-modal-spinner" />
-                    <span>Memuat pratinjau interaktif...</span>
+                    <span>Memuat pratinjau...</span>
                   </div>
 
-                  {activeProject.video_url ? (
-                    activeProject.video_url.includes("youtube.com") || activeProject.video_url.includes("youtu.be") ? (
-                      <iframe
-                        key={`${activeProject.id}-yt`}
-                        ref={modalIframeRef}
-                        src={getEmbedUrl(activeProject.video_url)}
-                        title={activeProject.title}
-                        style={{ width: "100%", height: "100%", border: "none" }}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        onLoad={() => setMediaLoading(false)}
-                      />
-                    ) : (
-                      <video
-                        key={`${activeProject.id}-vid`}
-                        src={activeProject.video_url}
-                        controls
-                        autoPlay
-                        onLoadedData={() => setMediaLoading(false)}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "contain",
-                        }}
-                      />
-                    )
-                  ) : (isLiveWebsite(activeProject.project_url) ||
-                      (activeProject.project_url && activeProject.project_url.includes("/embed"))) &&
-                    modalViewMode === "live" ? (
+                  {modalViewMode === "demo" && activeIsYouTube && activeProject.video_url ? (
+                    <iframe
+                      key={`${activeProject.id}-yt`}
+                      ref={modalIframeRef}
+                      src={getEmbedUrl(activeProject.video_url)}
+                      title={activeProject.title}
+                      style={{ width: "100%", height: "100%", border: "none", background: "#050a14" }}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      onLoad={() => setMediaLoading(false)}
+                    />
+                  ) : modalViewMode === "demo" && activeDemoVideo ? (
+                    <video
+                      key={`${activeProject.id}-vid`}
+                      width={1280}
+                      height={800}
+                      poster={activeProject.auto_thumbnail || activeProject.image_url}
+                      controls
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      onLoadedData={() => setMediaLoading(false)}
+                      onCanPlay={() => setMediaLoading(false)}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        background: "#050a14",
+                      }}
+                    >
+                      <source src={activeDemoVideo} />
+                    </video>
+                  ) : modalViewMode === "live" && activeEmbedExplicitlyAllowed ? (
                     <iframe
                       key={`${activeProject.id}-live`}
                       ref={modalIframeRef}
@@ -841,17 +1010,26 @@ export default function Works() {
                         width: "100%",
                         height: "100%",
                         border: "none",
-                        background: "#fff",
+                        background: "#0a1120",
                       }}
                       sandbox="allow-scripts allow-same-origin allow-popups"
                       onLoad={() => setMediaLoading(false)}
+                      onError={() => setMediaLoading(false)}
                     />
                   ) : (
                     <img
                       key={`${activeProject.id}-img`}
-                      src={activeProject.auto_thumbnail || activeProject.image_url || "/Resources/thumbnail-sharing.png"}
+                      ref={(el) => {
+                        if (el && el.complete) setMediaLoading(false);
+                      }}
+                      src={
+                        activeProject.auto_thumbnail ||
+                        activeProject.image_url ||
+                        "/Resources/thumbnail-sharing.png"
+                      }
                       alt={activeProject.title}
                       onLoad={() => setMediaLoading(false)}
+                      onError={() => setMediaLoading(false)}
                       style={{
                         width: "100%",
                         height: "100%",
@@ -861,14 +1039,36 @@ export default function Works() {
                   )}
                 </div>
 
-                {/* Body: Description & Tech Stack Pills */}
+                {/* Body: Case-Study Metadata Strip, Description & Tech Stack Pills */}
                 <div className="works-modal-body">
+                  <div className="works-modal-meta-strip">
+                    <div className="works-modal-meta-cell">
+                      <span className="works-modal-meta-label">Category</span>
+                      <span className="works-modal-meta-value">{activeProject.category}</span>
+                    </div>
+                    <div className="works-modal-meta-cell">
+                      <span className="works-modal-meta-label">Core Stack</span>
+                      <span className="works-modal-meta-value">{activeTags.slice(0, 2).join(" · ")}</span>
+                    </div>
+                    <div className="works-modal-meta-cell">
+                      <span className="works-modal-meta-label">Destination</span>
+                      <span className="works-modal-meta-value">
+                        {activeDomain || "Showcase Media"}
+                        {activeEmbedBlocked && (
+                          <span className="works-modal-safe-tag" title="Situs ini membatasi live iframe eksternal">
+                            Safe Snapshot
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
                   <p className="works-modal-description">
                     {activeProject.description ||
                       "Solusi digital berkinerja tinggi yang dirancang dengan perpaduan keindahan visual, interaktivitas modern, dan arsitektur kode yang efisien."}
                   </p>
                   <div className="works-modal-tags">
-                    {getProjectTechTags(activeProject).map((tag, idx) => (
+                    {activeTags.map((tag, idx) => (
                       <span key={idx} className="works-modal-tag-pill">
                         #{tag}
                       </span>
@@ -879,17 +1079,29 @@ export default function Works() {
                 {/* Footer */}
                 <div className="works-modal-footer">
                   <span className="works-modal-hint">Press ← → to navigate, ESC to close</span>
-                  {activeProject.project_url && (
-                    <a
-                      href={activeProject.project_url.replace(/\/embed\/?$/, "/")}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="works-modal-cta magnetic-target"
-                    >
-                      <span>Buka Link Asli</span>
-                      <span aria-hidden="true">↗</span>
-                    </a>
-                  )}
+                  <div className="works-modal-footer-actions">
+                    {activeProject.project_url && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleCopyProjectLink}
+                          aria-label="Copy project URL"
+                          className={`works-modal-copy-btn magnetic-target ${copiedProjectLink ? "copied" : ""}`}
+                        >
+                          {copiedProjectLink ? "✓ Copied" : "Copy Link"}
+                        </button>
+                        <a
+                          href={activeProject.project_url.replace(/\/embed\/?$/, "/")}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="works-modal-cta magnetic-target"
+                        >
+                          <span>Buka Link Asli</span>
+                          <span aria-hidden="true">↗</span>
+                        </a>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

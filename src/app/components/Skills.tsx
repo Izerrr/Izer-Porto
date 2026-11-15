@@ -29,14 +29,14 @@ export default function Skills() {
       .then((data) => {
         setCapabilities(Array.isArray(data) ? data : []);
       })
-      .catch((err) => console.error("Gagal ambil capabilities:", err));
+      .catch((err) => console.warn("Gagal ambil capabilities:", err));
 
     const fetchIcons = fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=tech_icons`)
       .then((res) => res.json())
       .then((data) => {
         setTechIcons(Array.isArray(data) ? data : []);
       })
-      .catch((err) => console.error("Gagal ambil tech icons:", err));
+      .catch((err) => console.warn("Gagal ambil tech icons:", err));
 
     Promise.all([fetchCapabilities, fetchIcons]).then(() => {
       setLoading(false);
@@ -80,7 +80,7 @@ export default function Skills() {
       {/* --- BOX CAPABILITIES TEXT --- */}
       <div className="skills-grid" ref={gridRef}>
         {loading ? (
-          <p style={{ opacity: 0.5, gridColumn: "1/-1", textAlign: "center", padding: "2rem 0" }}>Loading capabilities...</p>
+          <p style={{ color: "var(--text-dim)", gridColumn: "1/-1", textAlign: "center", padding: "2rem 0" }}>Loading capabilities...</p>
         ) : capabilities.length > 0 ? (
           capabilities.map((s, i) => (
             <div key={s.id || i} className="glass-card skill-box">
@@ -90,7 +90,7 @@ export default function Skills() {
             </div>
           ))
         ) : (
-          <p style={{ opacity: 0.5, gridColumn: "1/-1", textAlign: "center" }}>Belum ada data skill di gudang.</p>
+          <p style={{ color: "var(--text-dim)", gridColumn: "1/-1", textAlign: "center" }}>Belum ada data skill di gudang.</p>
         )}
       </div>
 
@@ -99,7 +99,7 @@ export default function Skills() {
         <p className="icons-title">Tools & Technologies</p>
 
         {loading ? (
-          <p style={{ opacity: 0.4, fontSize: "0.8rem", textAlign: "center" }}>Loading assets...</p>
+          <p style={{ color: "var(--text-dim)", fontSize: "0.85rem", textAlign: "center" }}>Loading assets...</p>
         ) : techIcons.length > 0 ? (
           <div className="marquee-track">
             <div className="animate-marquee">
@@ -118,7 +118,7 @@ export default function Skills() {
             </div>
           </div>
         ) : (
-          <p style={{ opacity: 0.4, fontSize: "0.8rem", textAlign: "center" }}>Belum ada icon di gudang admin.</p>
+          <p style={{ color: "var(--text-dim)", fontSize: "0.85rem", textAlign: "center" }}>Belum ada icon di gudang admin.</p>
         )}
       </div>
     </section>

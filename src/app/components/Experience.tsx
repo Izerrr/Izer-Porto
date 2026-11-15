@@ -19,7 +19,6 @@ export default function Experience() {
   const [loading, setLoading] = useState(true);
   const sectionRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const progressLineRef = useRef<HTMLDivElement>(null);
 
   // 1. FETCH DATA PARALLEL (Careers & Education)
   useEffect(() => {
@@ -28,21 +27,21 @@ export default function Experience() {
       .then((data) => {
         if (Array.isArray(data)) setExperienceData(data);
       })
-      .catch((err) => console.error("Gagal ambil data experience:", err));
+      .catch((err) => console.warn("Gagal ambil data experience:", err));
 
     const fetchEdu = fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=education`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setEducationData(data);
       })
-      .catch((err) => console.error("Gagal ambil data education:", err));
+      .catch((err) => console.warn("Gagal ambil data education:", err));
 
     Promise.all([fetchExp, fetchEdu]).then(() => {
       setLoading(false);
     });
   }, []);
 
-  // 2. ANIMASI SWITCH TOGGLE, SCROLL-DRIVEN TIMELINE RAIL & STAGGER REVEAL
+  // 2. ANIMASI SWITCH TOGGLE & STAGGER REVEAL
   useEffect(() => {
     if (loading || !listRef.current) return;
 
@@ -72,27 +71,6 @@ export default function Experience() {
         }
       } else {
         ScrollTrigger.refresh();
-      }
-
-      if (progressLineRef.current && items && items.length > 0) {
-        if (prefersReduced) {
-          gsap.set(progressLineRef.current, { scaleY: 1 });
-        } else {
-          gsap.fromTo(
-            progressLineRef.current,
-            { scaleY: 0 },
-            {
-              scaleY: 1,
-              ease: "none",
-              scrollTrigger: {
-                trigger: listRef.current,
-                start: "top 78%",
-                end: "bottom 75%",
-                scrub: 0.4,
-              },
-            },
-          );
-        }
       }
     }, listRef);
 
@@ -131,20 +109,13 @@ export default function Experience() {
         </div>
       </div>
 
-      {/* --- TIMELINE LIST --- */}
+      {/* --- EXPERIENCE LIST --- */}
       <div className="experience-list" ref={listRef} style={{ marginTop: "3.5rem" }}>
-        {!loading && currentList.length > 0 && (
-          <div className="exp-timeline-track" aria-hidden="true">
-            <div ref={progressLineRef} className="exp-timeline-progress" />
-          </div>
-        )}
-
         {loading ? (
           <p className="exp-status-msg">Loading database...</p>
         ) : currentList.length > 0 ? (
           currentList.map((item, idx) => (
             <div key={item.id || idx} className="exp-row experience-item">
-              <span className="exp-node" aria-hidden="true" />
               {/* SISI KIRI: Durasi & Posisi */}
               <div className="exp-left" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                 <span className="exp-date">{item.date_range}</span>

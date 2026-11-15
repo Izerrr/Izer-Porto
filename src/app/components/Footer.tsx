@@ -1,12 +1,16 @@
 "use client";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { sound } from "../utils/sound";
+import { copyToClipboard, showHudToast, type HudToastDetail } from "../utils/clipboard";
 
 const emptySubscribe = () => () => {};
 
 export default function Footer() {
   const [copied, setCopied] = useState(false);
+  const [hudToast, setHudToast] = useState<HudToastDetail | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAnnouncementRef = useRef("");
   const email = "rayhanfahrezisetiawan@gmail.com";
 
   const isClient = useSyncExternalStore(
@@ -15,13 +19,48 @@ export default function Footer() {
     () => false
   );
 
+  useEffect(() => {
+    const handleToast = (e: Event) => {
+      const customEvent = e as CustomEvent<HudToastDetail>;
+      if (!customEvent.detail?.title) return;
+
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+
+      let nextTitle = customEvent.detail.title;
+      // Append non-breaking space when repeating so screen readers re-announce
+      if (nextTitle === lastAnnouncementRef.current) {
+        nextTitle = `${nextTitle}\u00A0`;
+      }
+      lastAnnouncementRef.current = nextTitle;
+
+      setHudToast({
+        title: nextTitle,
+        subtitle: customEvent.detail.subtitle,
+      });
+
+      toastTimerRef.current = setTimeout(() => {
+        setHudToast(null);
+      }, 2500);
+    };
+
+    window.addEventListener("izer-hud-toast", handleToast);
+    return () => {
+      window.removeEventListener("izer-hud-toast", handleToast);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
   const handleCopyEmail = async () => {
     sound.playAction();
-    try {
-      await navigator.clipboard.writeText(email);
+    const ok = await copyToClipboard(email);
+    if (ok) {
       setCopied(true);
+      showHudToast({
+        title: "Email Copied to Clipboard",
+        subtitle: email,
+      });
       setTimeout(() => setCopied(false), 2500);
-    } catch {
+    } else {
       window.location.href = `mailto:${email}`;
     }
   };
@@ -55,14 +94,16 @@ export default function Footer() {
         <p className="copyright">&copy; 2026 IZERWORKS. FROM THE RIVER TO THE SEA.</p>
       </div>
 
-      {copied &&
+      {hudToast &&
         isClient &&
         createPortal(
           <div className="macos-hud-toast" role="status" aria-live="polite">
-            <div className="macos-hud-icon">✓</div>
+            <div className="macos-hud-icon" aria-hidden="true">✓</div>
             <div className="macos-hud-content">
-              <span className="macos-hud-title">Email Copied to Clipboard</span>
-              <span className="macos-hud-subtitle">{email}</span>
+              <span className="macos-hud-title">{hudToast.title}</span>
+              {hudToast.subtitle && (
+                <span className="macos-hud-subtitle">{hudToast.subtitle}</span>
+              )}
             </div>
           </div>,
           document.body,

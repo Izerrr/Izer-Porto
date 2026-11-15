@@ -7,10 +7,8 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function About() {
   const [images, setImages] = useState<string[]>([
-    "/Resources/About_Image/profile1.webp",
-    "/Resources/About_Image/profile2.webp",
-    "/Resources/About_Image/profile3.webp",
-    "/Resources/About_Image/profile4.webp",
+    "/Resources/About_Image/profile3.JPG",
+    "/Resources/About_Image/profile4.jpg",
     "/Resources/About_Image/profile5.webp",
     "/Resources/About_Image/profile6.webp",
   ]);
@@ -39,7 +37,7 @@ export default function About() {
           ScrollTrigger.refresh();
         }, 400);
       })
-      .catch((err) => console.error("Gagal ambil foto About:", err));
+      .catch((err) => console.warn("Gagal ambil foto About:", err));
 
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=about`)
       .then((res) => res.json())
@@ -48,7 +46,7 @@ export default function About() {
           setAboutText(data[0].description);
         }
       })
-      .catch((err) => console.error("Gagal ambil teks About:", err));
+      .catch((err) => console.warn("Gagal ambil teks About:", err));
   }, []);
 
   /* 2. Isolated Slider Timer with Hover, Focus & Reduced-Motion Pause */
