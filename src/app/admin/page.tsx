@@ -1,6 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { sound } from "../utils/sound";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -19,14 +18,85 @@ interface PortfolioItem {
 }
 
 const CATEGORIES = [
-  { id: "works", label: "Selected Works", icon: "💼" },
-  { id: "tech_icons", label: "Tech Icons", icon: "⚡" },
-  { id: "skills", label: "Capabilities", icon: "🎯" },
-  { id: "experience", label: "Careers & Ventures", icon: "🚀" },
-  { id: "education", label: "Education", icon: "🎓" },
-  { id: "about", label: "About Text", icon: "📝" },
-  { id: "about_images", label: "About Photos", icon: "🖼" },
+  { id: "works", label: "Selected Works" },
+  { id: "tech_icons", label: "Tech Icons" },
+  { id: "skills", label: "Capabilities" },
+  { id: "experience", label: "Careers & Ventures" },
+  { id: "education", label: "Education" },
+  { id: "about", label: "About Text" },
+  { id: "about_images", label: "About Photos" },
 ];
+
+const DIALOG_LIGHT_DISMISS = { closedby: "any" } as Record<string, string>;
+
+function CategoryIcon({ id }: { id: string }) {
+  const svgProps = {
+    "aria-hidden": true as const,
+    width: 15,
+    height: 15,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  switch (id) {
+    case "works":
+      return (
+        <svg {...svgProps}>
+          <rect x="2" y="7" width="20" height="14" rx="2" />
+          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+        </svg>
+      );
+    case "tech_icons":
+      return (
+        <svg {...svgProps}>
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </svg>
+      );
+    case "skills":
+      return (
+        <svg {...svgProps}>
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="12" cy="12" r="5" />
+          <circle cx="12" cy="12" r="1" />
+        </svg>
+      );
+    case "experience":
+      return (
+        <svg {...svgProps}>
+          <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+          <path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+        </svg>
+      );
+    case "education":
+      return (
+        <svg {...svgProps}>
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+          <path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5" />
+        </svg>
+      );
+    case "about":
+      return (
+        <svg {...svgProps}>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+        </svg>
+      );
+    default:
+      return (
+        <svg {...svgProps}>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+      );
+  }
+}
 
 export default function AdminPage() {
   const router = useRouter();
@@ -41,6 +111,9 @@ export default function AdminPage() {
   const [dragOverId, setDragOverId] = useState<number | null>(null);
   const [deleteModalItem, setDeleteModalItem] = useState<PortfolioItem | null>(null);
   const [previewAssetUrl, setPreviewAssetUrl] = useState<string | null>(null);
+
+  const deleteDialogRef = useRef<HTMLDialogElement>(null);
+  const lightboxDialogRef = useRef<HTMLDialogElement>(null);
 
   // Toast / Feedback state
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -58,12 +131,12 @@ export default function AdminPage() {
     video_url: "",
   });
 
-  const showToast = (message: string, type: "success" | "error" = "success") => {
+  const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
     setTimeout(() => {
       setToast(null);
     }, 3200);
-  };
+  }, []);
 
   // Logout
   const handleLogout = async () => {
@@ -97,76 +170,131 @@ export default function AdminPage() {
   }, [router]);
 
   // Reset Form
-  const resetForm = useCallback((cat?: string | unknown) => {
-    const targetCat = typeof cat === "string" ? cat : selectedCategory;
-    setForm({
-      id: null,
-      title: "",
-      description: "",
-      category: targetCat,
-      project_category: "Web Development",
-      date_range: "",
-      image_url: "",
-      project_url: "",
-      video_url: "",
-    });
-  }, [selectedCategory]);
+  const resetForm = useCallback(
+    (cat?: string | unknown) => {
+      const targetCat = typeof cat === "string" ? cat : selectedCategory;
+      setForm({
+        id: null,
+        title: "",
+        description: "",
+        category: targetCat,
+        project_category: "Web Development",
+        date_range: "",
+        image_url: "",
+        project_url: "",
+        video_url: "",
+      });
+    },
+    [selectedCategory],
+  );
 
-  // Fetch data on demand
-  const fetchData = useCallback(async () => {
+  // Pure fetcher returning rows so effect callbacks & imperative refreshes share one path without sync setState
+  const fetchCategoryRecords = useCallback(async (): Promise<{
+    unauthorized?: boolean;
+    items?: PortfolioItem[];
+    failed?: boolean;
+  }> => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=${selectedCategory}`, {
         credentials: "include",
       });
       if (res.status === 401 || res.status === 403) {
-        router.replace("/login");
-        return;
+        return { unauthorized: true };
       }
       const responseText = await res.text();
       try {
         const data = JSON.parse(responseText);
-        setDataList(Array.isArray(data) ? data : []);
+        return { items: Array.isArray(data) ? data : [] };
       } catch {
-        setDataList([]);
+        return { items: [] };
       }
     } catch (err) {
       console.error("API error:", err);
-      showToast("Failed to fetch database records.", "error");
+      return { failed: true };
     }
-  }, [selectedCategory, router]);
+  }, [selectedCategory]);
 
-  // Sync data on category change (async in callback)
+  const fetchData = useCallback(async () => {
+    const result = await fetchCategoryRecords();
+    if (result.unauthorized) {
+      router.replace("/login");
+      return;
+    }
+    if (result.failed) {
+      showToast("Failed to fetch database records.", "error");
+      return;
+    }
+    if (result.items) {
+      setDataList(result.items);
+    }
+  }, [fetchCategoryRecords, router, showToast]);
+
+  // Sync data on category change via promise callback
   useEffect(() => {
-    let ignore = false;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/get_data.php?category=${selectedCategory}`, {
-      credentials: "include",
-    })
-      .then((res) => {
-        if (res.status === 401 || res.status === 403) {
-          router.replace("/login");
-          return null;
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (!ignore && Array.isArray(data)) {
-          setDataList(data);
-        }
-      })
-      .catch((err) => {
-        console.error("API error:", err);
-      });
-
+    let ignored = false;
+    fetchCategoryRecords().then((result) => {
+      if (ignored) return;
+      if (result.unauthorized) {
+        router.replace("/login");
+        return;
+      }
+      if (result.items) {
+        setDataList(result.items);
+      }
+    });
     return () => {
-      ignore = true;
+      ignored = true;
     };
-  }, [selectedCategory, router]);
+  }, [fetchCategoryRecords, router]);
+
+  // Sync Native <dialog> elements cleanly
+  useEffect(() => {
+    const dialog = deleteDialogRef.current;
+    if (!dialog) return;
+    if (deleteModalItem && !dialog.open) {
+      dialog.showModal();
+    } else if (!deleteModalItem && dialog.open) {
+      dialog.close();
+    }
+  }, [deleteModalItem]);
+
+  useEffect(() => {
+    const dialog = lightboxDialogRef.current;
+    if (!dialog) return;
+    if (previewAssetUrl && !dialog.open) {
+      dialog.showModal();
+    } else if (!previewAssetUrl && dialog.open) {
+      dialog.close();
+    }
+  }, [previewAssetUrl]);
+
+  const closeDeleteModal = () => {
+    sound.playModalClose();
+    setDeleteModalItem(null);
+  };
+
+  const closeLightbox = () => {
+    sound.playModalClose();
+    setPreviewAssetUrl(null);
+  };
+
+  // Safari backdrop-click fallback using pointer coordinates against dialog box rect
+  const handleDialogBackdropClick = (e: React.MouseEvent<HTMLDialogElement>, onClose: () => void) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (
+      e.clientX < rect.left ||
+      e.clientX > rect.right ||
+      e.clientY < rect.top ||
+      e.clientY > rect.bottom
+    ) {
+      onClose();
+    }
+  };
 
   const handleCategorySelect = (catId: string) => {
     setSelectedCategory(catId);
     resetForm(catId);
     setSearchQuery("");
-
   };
 
   // Filtered list by search query
@@ -200,7 +328,7 @@ export default function AdminPage() {
         ...prev,
         image_url: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
       }));
-      showToast("YouTube HD Cover applied! ✓");
+      showToast("YouTube HD Cover applied!");
       return;
     }
 
@@ -209,20 +337,20 @@ export default function AdminPage() {
       const res = await fetch("/api/capture-cover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ url, forceRefresh }),
       });
       const json = await res.json();
 
       if (res.ok && json.status === "success" && json.image_url) {
         setForm((prev) => ({ ...prev, image_url: json.image_url }));
-        showToast(json.message || "Instant WebP Cover generated! ✓");
+        showToast(json.message || "Instant WebP Cover generated!");
       } else {
-        // Fallback to local proxy URL
         setForm((prev) => ({
           ...prev,
           image_url: `/api/capture-cover?url=${encodeURIComponent(url)}`,
         }));
-        showToast("Cover linked via instant proxy! ✓");
+        showToast("Cover linked via instant proxy!");
       }
     } catch {
       setForm((prev) => ({
@@ -260,9 +388,9 @@ export default function AdminPage() {
 
       const result = await res.json();
       if (result.status === "success") {
-        showToast(form.id ? "Item updated successfully! ✓" : "New item created! ✓");
+        showToast(form.id ? "Item updated successfully!" : "New item created!");
         resetForm();
-        fetchData();
+        void fetchData();
       } else {
         showToast("Operation failed: " + (result.message || "Unknown error"), "error");
       }
@@ -290,10 +418,9 @@ export default function AdminPage() {
 
       const result = await res.json();
       if (result.status === "success") {
-        showToast("Item deleted successfully! ✓");
+        showToast("Item deleted successfully!");
         if (form.id === id) resetForm();
-    
-        fetchData();
+        void fetchData();
       } else {
         showToast("Delete failed: " + (result.message || "Unknown error"), "error");
       }
@@ -337,7 +464,7 @@ export default function AdminPage() {
       video_url: item.video_url || "",
     });
 
-    showToast("Item cloned to form as new record! ✓");
+    showToast("Item cloned to form as new record!");
     const formEl = document.getElementById("admin-form-panel");
     if (formEl) {
       formEl.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -379,14 +506,14 @@ export default function AdminPage() {
 
       const result = await res.json();
       if (result.status === "success") {
-        showToast("Order updated successfully! ✓");
+        showToast("Order updated successfully!");
       } else {
         showToast("Reorder failed: " + (result.message || "Unknown error"), "error");
-        fetchData();
+        void fetchData();
       }
     } catch {
       showToast("Failed to save reorder changes to server", "error");
-      fetchData();
+      void fetchData();
     } finally {
       setReordering(false);
       setDraggedId(null);
@@ -428,7 +555,7 @@ export default function AdminPage() {
     <main
       style={{
         paddingTop: "6rem",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         width: "100%",
         background: "var(--bg-midnight)",
         boxSizing: "border-box",
@@ -438,6 +565,8 @@ export default function AdminPage() {
       {/* Toast Notification */}
       {toast && (
         <div
+          role="status"
+          aria-live="polite"
           style={{
             position: "fixed",
             bottom: "2rem",
@@ -461,7 +590,10 @@ export default function AdminPage() {
         </div>
       )}
 
-      <div className="section-container" style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "0 1.5rem 5rem 1.5rem", boxSizing: "border-box" }}>
+      <div
+        className="section-container"
+        style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "0 1.5rem 5rem 1.5rem", boxSizing: "border-box" }}
+      >
         {/* Top Navigation Bar */}
         <div
           className="glass-card"
@@ -494,7 +626,7 @@ export default function AdminPage() {
                 background: "rgba(255, 255, 255, 0.03)",
               }}
             >
-              <span>←</span>
+              <span aria-hidden="true">←</span>
               <span>Live Site</span>
             </Link>
 
@@ -545,6 +677,8 @@ export default function AdminPage() {
 
         {/* Category Tabs */}
         <div
+          role="tablist"
+          aria-label="Admin content categories"
           style={{
             display: "flex",
             gap: "0.6rem",
@@ -560,6 +694,8 @@ export default function AdminPage() {
               <button
                 key={cat.id}
                 type="button"
+                role="tab"
+                aria-selected={isActive}
                 onClick={() => handleCategorySelect(cat.id)}
                 className="magnetic-target"
                 style={{
@@ -578,7 +714,7 @@ export default function AdminPage() {
                   transition: "all 0.25s ease",
                 }}
               >
-                <span>{cat.icon}</span>
+                <CategoryIcon id={cat.id} />
                 <span>{cat.label}</span>
                 {isActive && dataList.length > 0 && (
                   <span style={{ fontSize: "0.7rem", padding: "0.1rem 0.45rem", borderRadius: "10px", background: "rgba(255, 255, 255, 0.12)" }}>
@@ -631,34 +767,46 @@ export default function AdminPage() {
             </div>
 
             {form.id !== null && (
-  <div className="admin-editing-banner">
-    <div className="admin-editing-label">
-      <span>✏️</span>
-      <span>Sedang Mengedit: <strong>{form.title || `Item #${form.id}`}</strong></span>
-    </div>
-    <button
-      type="button"
-      onClick={() => {
-        sound.playAction();
-        resetForm();
-      }}
-      className="admin-btn-cancel-edit"
-    >
-      ✕ Batal & Tambah Baru
-    </button>
-  </div>
-)}
-<form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+              <div className="admin-editing-banner">
+                <div className="admin-editing-label">
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                  </svg>
+                  <span>
+                    Sedang Mengedit: <strong>{form.title || `Item #${form.id}`}</strong>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playAction();
+                    resetForm();
+                  }}
+                  className="admin-btn-cancel-edit"
+                >
+                  ✕ Batal &amp; Tambah Baru
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
               {selectedCategory !== "about_images" && (
                 <div>
                   <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "var(--text-dim)", marginBottom: "0.35rem" }}>
-                    {selectedCategory === "skills" ? "CAPABILITY TITLE" : selectedCategory === "tech_icons" ? "TOOL / TECH NAME" : selectedCategory === "education" ? "INSTITUTION NAME" : "ITEM TITLE / POSITION"}
+                    {selectedCategory === "skills"
+                      ? "CAPABILITY TITLE"
+                      : selectedCategory === "tech_icons"
+                        ? "TOOL / TECH NAME"
+                        : selectedCategory === "education"
+                          ? "INSTITUTION NAME"
+                          : "ITEM TITLE / POSITION"}
                   </label>
                   <input
                     type="text"
                     placeholder="e.g. Modern Web Architecture"
-                    className="glass-card"
-                    style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", outline: "none", fontSize: "0.9rem" }}
+                    className="glass-card admin-input"
+                    style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", fontSize: "0.9rem" }}
                     value={form.title}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                     required={selectedCategory !== "about_images"}
@@ -675,8 +823,8 @@ export default function AdminPage() {
                     type="text"
                     list="work-categories"
                     placeholder="e.g. Web Development, Video Production"
-                    className="glass-card"
-                    style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", outline: "none", fontSize: "0.9rem" }}
+                    className="glass-card admin-input"
+                    style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", fontSize: "0.9rem" }}
                     value={form.project_category || ""}
                     onChange={(e) => setForm({ ...form, project_category: e.target.value })}
                     required
@@ -697,9 +845,9 @@ export default function AdminPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. 2024 — Present, or Aug 2023 - Dec 2024"
-                    className="glass-card"
-                    style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", outline: "none", fontSize: "0.9rem" }}
+                    placeholder="e.g. 2024 - Present, or Aug 2023 - Dec 2024"
+                    className="glass-card admin-input"
+                    style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", fontSize: "0.9rem" }}
                     value={form.date_range || ""}
                     onChange={(e) => setForm({ ...form, date_range: e.target.value })}
                   />
@@ -714,8 +862,18 @@ export default function AdminPage() {
                   </div>
                   <textarea
                     placeholder={selectedCategory === "education" ? "Major, achievements, GPA, and highlights..." : "Detailed paragraph description..."}
-                    className="glass-card"
-                    style={{ padding: "0.9rem", color: "inherit", minHeight: "140px", resize: "vertical", width: "100%", boxSizing: "border-box", borderRadius: "10px", outline: "none", fontSize: "0.9rem", lineHeight: "1.6" }}
+                    className="glass-card admin-input"
+                    style={{
+                      padding: "0.9rem",
+                      color: "inherit",
+                      minHeight: "140px",
+                      resize: "vertical",
+                      width: "100%",
+                      boxSizing: "border-box",
+                      borderRadius: "10px",
+                      fontSize: "0.9rem",
+                      lineHeight: "1.6",
+                    }}
                     value={form.description || ""}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                   />
@@ -729,16 +887,14 @@ export default function AdminPage() {
                       {selectedCategory === "tech_icons" ? "ICON URL (.svg / .png)" : "COVER IMAGE / THUMBNAIL URL"}
                     </label>
                     {selectedCategory === "works" && form.image_url?.startsWith("/Resources/works_covers/") && (
-                      <span style={{ fontSize: "0.68rem", color: "#4ade80", fontWeight: "600" }}>
-                        ✓ Local WebP Cached
-                      </span>
+                      <span style={{ fontSize: "0.68rem", color: "#4ade80", fontWeight: "600" }}>✓ Local WebP Cached</span>
                     )}
                   </div>
                   <input
                     type="text"
                     placeholder="https://... or /Resources/works_covers/..."
-                    className="glass-card"
-                    style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", outline: "none", fontSize: "0.9rem" }}
+                    className="glass-card admin-input"
+                    style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", fontSize: "0.9rem" }}
                     value={form.image_url || ""}
                     onChange={(e) => setForm({ ...form, image_url: e.target.value })}
                     required={["about_images", "tech_icons"].includes(selectedCategory)}
@@ -758,6 +914,9 @@ export default function AdminPage() {
                         disabled={loadingPreview || !form.project_url}
                         onClick={() => handleGenerateInstantCover(form.project_url, true)}
                         style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.35rem",
                           background: "rgba(56, 189, 248, 0.14)",
                           border: "1px solid rgba(56, 189, 248, 0.4)",
                           color: "#38bdf8",
@@ -770,14 +929,17 @@ export default function AdminPage() {
                           transition: "all 0.2s ease",
                         }}
                       >
-                        {loadingPreview ? "⏳ Capturing WebP..." : "⚡ Generate Instant Cover"}
+                        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
+                        <span>{loadingPreview ? "Capturing WebP..." : "Generate Instant Cover"}</span>
                       </button>
                     </div>
                     <input
                       type="text"
                       placeholder="https://..."
-                      className="glass-card"
-                      style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", outline: "none", fontSize: "0.9rem" }}
+                      className="glass-card admin-input"
+                      style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", fontSize: "0.9rem" }}
                       value={form.project_url || ""}
                       onChange={(e) => setForm({ ...form, project_url: e.target.value })}
                       onBlur={(e) => {
@@ -795,8 +957,8 @@ export default function AdminPage() {
                     <input
                       type="text"
                       placeholder="Optional video stream URL"
-                      className="glass-card"
-                      style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", outline: "none", fontSize: "0.9rem" }}
+                      className="glass-card admin-input"
+                      style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", fontSize: "0.9rem" }}
                       value={form.video_url || ""}
                       onChange={(e) => setForm({ ...form, video_url: e.target.value })}
                     />
@@ -814,11 +976,11 @@ export default function AdminPage() {
                     }}
                   >
                     <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", display: "block", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      Cover & Media Preview
+                      Cover &amp; Media Preview
                     </span>
 
                     {loadingPreview ? (
-                      <p style={{ fontSize: "0.82rem", color: "#38bdf8", margin: "2rem 0" }}>⏳ Generating optimized WebP cover from website...</p>
+                      <p style={{ fontSize: "0.82rem", color: "#38bdf8", margin: "2rem 0" }}>Generating optimized WebP cover from website...</p>
                     ) : form.video_url || form.image_url || form.project_url ? (
                       <div style={{ width: "100%", height: "180px", borderRadius: "8px", overflow: "hidden", background: "#050811" }}>
                         {form.video_url ? (
@@ -827,6 +989,7 @@ export default function AdminPage() {
                               src={`https://www.youtube.com/embed/${form.video_url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/)?.[2]}`}
                               style={{ width: "100%", height: "100%", border: "none" }}
                               allowFullScreen
+                              title="YouTube video preview"
                             />
                           ) : (
                             <video src={form.video_url} controls style={{ width: "100%", height: "100%", objectFit: "contain" }} />
@@ -834,17 +997,23 @@ export default function AdminPage() {
                         ) : form.image_url ? (
                           <img src={form.image_url} alt="Generated Cover Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         ) : (
-                          <img src={`/api/capture-cover?url=${encodeURIComponent(form.project_url || "")}`} alt="Instant Website Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          <img
+                            src={`/api/capture-cover?url=${encodeURIComponent(form.project_url || "")}`}
+                            alt="Instant Website Preview"
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
                         )}
                       </div>
                     ) : (
-                      <p style={{ fontSize: "0.78rem", opacity: 0.35, margin: "1rem 0" }}>Paste a Project URL and click &quot;⚡ Generate Instant Cover&quot;</p>
+                      <p style={{ fontSize: "0.78rem", color: "var(--text-dim)", margin: "1rem 0" }}>
+                        Paste a Project URL and click &quot;Generate Instant Cover&quot;
+                      </p>
                     )}
                   </div>
                 </>
               )}
 
-              {/* Submit Buttons */}
+              {/* Submit Button */}
               <button
                 type="submit"
                 className="btn-primary magnetic-target"
@@ -872,25 +1041,47 @@ export default function AdminPage() {
                   Manage {CATEGORIES.find((c) => c.id === selectedCategory)?.label}
                 </h3>
                 <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
-                  {filteredList.length} total entries • Drag handle (⋮⋮) or use arrows to reorder
+                  {filteredList.length} total entries &middot; Drag handle or use arrows to reorder
                 </span>
               </div>
             </div>
 
             {/* Search Filter Input */}
-            <div style={{ marginBottom: "1.2rem" }}>
+            <div style={{ marginBottom: "1.2rem", position: "relative" }}>
+              <svg
+                aria-hidden="true"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  position: "absolute",
+                  left: "0.95rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-dim)",
+                  pointerEvents: "none",
+                }}
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
               <input
                 type="text"
-                placeholder="🔍 Search items by title, category, or URL..."
-                className="glass-card"
+                aria-label="Search items"
+                placeholder="Search items by title, category, or URL..."
+                className="glass-card admin-input"
                 style={{
-                  padding: "0.75rem 1rem",
+                  padding: "0.75rem 1rem 0.75rem 2.5rem",
                   color: "inherit",
                   width: "100%",
                   boxSizing: "border-box",
                   borderRadius: "10px",
                   fontSize: "0.85rem",
-                  outline: "none",
                 }}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -915,7 +1106,6 @@ export default function AdminPage() {
                   const prevItem = masterIdx > 0 ? dataList[masterIdx - 1] : null;
                   const nextItem = masterIdx >= 0 && masterIdx < dataList.length - 1 ? dataList[masterIdx + 1] : null;
                   const isCurrentEditing = Number(form.id) === itemId;
-                  // isCurrentEditing indicates active editing row
 
                   return (
                     <div
@@ -932,13 +1122,13 @@ export default function AdminPage() {
                         border: isCurrentEditing
                           ? "1px solid #38bdf8"
                           : dragOverId === itemId
-                          ? "1px solid #a855f7"
-                          : "1px solid var(--glass-border)",
+                            ? "1px solid #a855f7"
+                            : "1px solid var(--glass-border)",
                         background: isCurrentEditing
                           ? "rgba(56, 189, 248, 0.05)"
                           : dragOverId === itemId
-                          ? "rgba(168, 85, 247, 0.08)"
-                          : "var(--glass-bg)",
+                            ? "rgba(168, 85, 247, 0.08)"
+                            : "var(--glass-bg)",
                         opacity: draggedId === itemId ? 0.35 : 1,
                         transition: "all 0.15s ease",
                         boxShadow: dragOverId === itemId ? "0 0 16px rgba(168, 85, 247, 0.25)" : "none",
@@ -951,6 +1141,7 @@ export default function AdminPage() {
                           onDragStart={(e) => handleDragStart(e, itemId)}
                           onDragEnd={handleDragEnd}
                           title={searchQuery ? "Clear search to reorder" : "Drag handle to reorder"}
+                          aria-hidden="true"
                           style={{
                             fontSize: "1.1rem",
                             lineHeight: 1,
@@ -970,10 +1161,12 @@ export default function AdminPage() {
                             onClick={() => prevItem && prevItem.id && applyReorderById(itemId, Number(prevItem.id))}
                             disabled={!prevItem || reordering}
                             title="Move Up"
+                            aria-label={`Move ${item.title || "item"} up`}
                             style={{
                               background: "none",
                               border: "none",
-                              color: !prevItem ? "rgba(255, 255, 255, 0.15)" : "var(--text-main)",
+                              color: !prevItem ? "var(--text-dim)" : "var(--text-main)",
+                              opacity: !prevItem ? 0.4 : 1,
                               cursor: !prevItem ? "default" : "pointer",
                               fontSize: "0.7rem",
                               lineHeight: 1,
@@ -991,10 +1184,12 @@ export default function AdminPage() {
                             onClick={() => nextItem && nextItem.id && applyReorderById(itemId, Number(nextItem.id))}
                             disabled={!nextItem || reordering}
                             title="Move Down"
+                            aria-label={`Move ${item.title || "item"} down`}
                             style={{
                               background: "none",
                               border: "none",
-                              color: !nextItem ? "rgba(255, 255, 255, 0.15)" : "var(--text-main)",
+                              color: !nextItem ? "var(--text-dim)" : "var(--text-main)",
+                              opacity: !nextItem ? 0.4 : 1,
                               cursor: !nextItem ? "default" : "pointer",
                               fontSize: "0.7rem",
                               lineHeight: 1,
@@ -1009,29 +1204,39 @@ export default function AdminPage() {
 
                       {/* Visual Thumbnail for media / tech icons */}
                       {(item.image_url || selectedCategory === "tech_icons") && (
-                        <div
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (item.image_url) {
+                              sound.playModalOpen();
+                              setPreviewAssetUrl(item.image_url);
+                            }
+                          }}
+                          aria-label={`Preview asset for ${item.title || "item"}`}
                           style={{
                             width: "42px",
                             height: "42px",
                             borderRadius: "8px",
                             background: "rgba(0, 0, 0, 0.3)",
+                            border: "none",
+                            padding: 0,
                             flexShrink: 0,
                             overflow: "hidden",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
+                            cursor: item.image_url ? "zoom-in" : "default",
                           }}
                         >
                           <img
                             src={item.image_url || "/placeholder.jpg"}
-                            alt={item.title || "Icon"}
-                            style={{ width: "100%", height: "100%", objectFit: "contain", padding: "2px", cursor: "zoom-in" }}
- onClick={() => { if (item.image_url) { sound.playModalOpen(); setPreviewAssetUrl(item.image_url); } }}
+                            alt={item.title || "Asset"}
+                            style={{ width: "100%", height: "100%", objectFit: "contain", padding: "2px" }}
                             onError={(e) => {
                               (e.target as HTMLElement).style.display = "none";
                             }}
                           />
-                        </div>
+                        </button>
                       )}
 
                       {/* Item Details */}
@@ -1107,32 +1312,32 @@ export default function AdminPage() {
                         </button>
 
                         <button
-  type="button"
-  onClick={() => {
-    sound.playModalOpen();
-    setDeleteModalItem(item);
-  }}
-  className="magnetic-target"
-  title="Delete this item"
-  style={{
-    color: "#ff4d4d",
-    background: "rgba(255, 77, 77, 0.08)",
-    border: "1px solid rgba(255, 77, 77, 0.2)",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontSize: "0.72rem",
-    fontWeight: "700",
-    padding: "0.32rem 0.6rem",
-  }}
->
-  DEL
-</button>
+                          type="button"
+                          onClick={() => {
+                            sound.playModalOpen();
+                            setDeleteModalItem(item);
+                          }}
+                          className="magnetic-target"
+                          title="Delete this item"
+                          style={{
+                            color: "#ff4d4d",
+                            background: "rgba(255, 77, 77, 0.08)",
+                            border: "1px solid rgba(255, 77, 77, 0.2)",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            fontSize: "0.72rem",
+                            fontWeight: "700",
+                            padding: "0.32rem 0.6rem",
+                          }}
+                        >
+                          DEL
+                        </button>
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <div style={{ textAlign: "center", padding: "3.5rem 0", opacity: 0.35 }}>
+                <div style={{ textAlign: "center", padding: "3.5rem 0", color: "var(--text-dim)" }}>
                   <p style={{ margin: 0 }}>No records found in this category.</p>
                 </div>
               )}
@@ -1153,86 +1358,100 @@ export default function AdminPage() {
           }
         }
       `}</style>
-          {/* Delete Confirmation Modal Dialog */}
-      {deleteModalItem &&
-        createPortal(
-          <div
-            className="admin-modal-backdrop"
-            onClick={() => {
-              sound.playModalClose();
-              setDeleteModalItem(null);
-            }}
-          >
-            <div
-              className="admin-modal-dialog"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                <div className="admin-modal-icon-badge">⚠️</div>
-                <div>
-                  <h3 className="admin-modal-title">Hapus Data Ini?</h3>
-                  <p className="admin-modal-desc">
-                    Tindakan ini permanen dan akan menghapus data langsung dari database.
-                  </p>
-                </div>
-              </div>
 
-              <div className="admin-modal-target-box">
-                <span style={{ fontSize: "0.72rem", opacity: 0.6, display: "block", textTransform: "uppercase", marginBottom: "0.2rem" }}>
-                  Target #{deleteModalItem.id} ({selectedCategory})
-                </span>
-                <span style={{ fontSize: "0.95rem", fontWeight: "700" }}>
-                  {deleteModalItem.title || deleteModalItem.image_url || `ID #${deleteModalItem.id}`}
-                </span>
+      {/* Native <dialog> Delete Confirmation Modal (autofocus on Cancel, overscroll-behavior: contain) */}
+      <dialog
+        ref={deleteDialogRef}
+        className="admin-native-dialog"
+        aria-labelledby="admin-delete-title"
+        onCancel={(e) => {
+          e.preventDefault();
+          closeDeleteModal();
+        }}
+        onClick={(e) => handleDialogBackdropClick(e, closeDeleteModal)}
+        {...DIALOG_LIGHT_DISMISS}
+      >
+        {deleteModalItem && (
+          <div className="admin-modal-dialog">
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <div className="admin-modal-icon-badge" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
               </div>
-
-              <div className="admin-modal-actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.playModalClose();
-                    setDeleteModalItem(null);
-                  }}
-                  className="admin-btn-cancel"
-                >
-                  Batal (ESC)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.playAction();
-                    if (deleteModalItem.id) executeDelete(deleteModalItem.id);
-                    setDeleteModalItem(null);
-                  }}
-                  className="admin-btn-danger"
-                >
-                  Ya, Hapus Data
-                </button>
+              <div>
+                <h3 id="admin-delete-title" className="admin-modal-title">
+                  Hapus Data Ini?
+                </h3>
+                <p className="admin-modal-desc">
+                  Tindakan ini permanen dan akan menghapus data langsung dari database.
+                </p>
               </div>
             </div>
-          </div>,
-          document.body,
-        )}
 
-      {/* Asset Lightbox Modal */}
-      {previewAssetUrl &&
-        createPortal(
-          <div
-            className="admin-lightbox-backdrop"
-            onClick={() => {
-              sound.playModalClose();
-              setPreviewAssetUrl(null);
-            }}
-          >
-            <img
-              src={previewAssetUrl}
-              alt="Asset Preview"
-              className="admin-lightbox-image"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>,
-          document.body,
+            <div className="admin-modal-target-box">
+              <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", display: "block", textTransform: "uppercase", marginBottom: "0.2rem" }}>
+                Target #{deleteModalItem.id} ({selectedCategory})
+              </span>
+              <span style={{ fontSize: "0.95rem", fontWeight: "700" }}>
+                {deleteModalItem.title || deleteModalItem.image_url || `ID #${deleteModalItem.id}`}
+              </span>
+            </div>
+
+            <div className="admin-modal-actions">
+              <button
+                type="button"
+                autoFocus
+                onClick={closeDeleteModal}
+                className="admin-btn-cancel"
+              >
+                Batal (ESC)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playAction();
+                  if (deleteModalItem.id) void executeDelete(deleteModalItem.id);
+                  setDeleteModalItem(null);
+                }}
+                className="admin-btn-danger"
+              >
+                Ya, Hapus Data
+              </button>
+            </div>
+          </div>
         )}
+      </dialog>
+
+      {/* Native <dialog> Asset Lightbox */}
+      <dialog
+        ref={lightboxDialogRef}
+        className="admin-native-lightbox"
+        aria-label="Asset image preview"
+        onCancel={(e) => {
+          e.preventDefault();
+          closeLightbox();
+        }}
+        onClick={(e) => handleDialogBackdropClick(e, closeLightbox)}
+        {...DIALOG_LIGHT_DISMISS}
+      >
+        {previewAssetUrl && (
+          <div className="admin-lightbox-content">
+            <button
+              type="button"
+              autoFocus
+              onClick={closeLightbox}
+              className="admin-lightbox-close"
+              aria-label="Close image preview"
+            >
+              ✕
+            </button>
+            <img src={previewAssetUrl} alt="Asset Preview" className="admin-lightbox-image" />
+          </div>
+        )}
+      </dialog>
     </main>
   );
 }

@@ -56,7 +56,7 @@ export default function LoginPage() {
         flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: "var(--bg-midnight)",
         padding: "1.5rem",
         boxSizing: "border-box",
@@ -131,7 +131,11 @@ export default function LoginPage() {
               gap: "0.5rem",
             }}
           >
-            <span style={{ fontSize: "1rem", lineHeight: 1 }}>⚠</span>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
             <span>{errorMessage}</span>
           </div>
         )}
@@ -154,7 +158,6 @@ export default function LoginPage() {
                 border: "1px solid var(--glass-border)",
                 background: "rgba(255, 255, 255, 0.03)",
                 fontSize: "0.95rem",
-                outline: "none",
               }}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -181,7 +184,6 @@ export default function LoginPage() {
                   border: "1px solid var(--glass-border)",
                   background: "rgba(255, 255, 255, 0.03)",
                   fontSize: "0.95rem",
-                  outline: "none",
                 }}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
