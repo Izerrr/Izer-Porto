@@ -7,15 +7,21 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function About() {
   const [images, setImages] = useState<string[]>([
+    "/Resources/About_Image/profile1.webp",
+    "/Resources/About_Image/profile2.webp",
+    "/Resources/About_Image/profile3.webp",
+    "/Resources/About_Image/profile4.webp",
     "/Resources/About_Image/profile5.webp",
     "/Resources/About_Image/profile6.webp",
   ]);
   const [imgIndex, setImgIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+  const touchStartX = useRef<number | null>(null);
 
   const [aboutText, setAboutText] = useState<string>(
-    "Memadukan kepemimpinan manajerial dari pengalaman memimpin OSIS dengan presisi teknis di dunia IT. Fokus gue ada pada penciptaan solusi digital yang nggak cuma fungsional, tapi juga ngasih pengalaman visual yang elegan.\n\nSebagai seorang jack of all trades, gue seneng mengeksplorasi banyak hal mulai dari ngoding, desain grafis, video editing, sampai main instrumen musik. Belakangan ini, gue juga lagi aktif lari buat ngelatih konsistensi—karena ngebangun endurance di jalanan ternyata nggak jauh beda sama ngerjain project kompleks.",
+    "Memadukan kepemimpinan manajerial dari pengalaman memimpin OSIS dengan presisi teknis di dunia IT. Fokus gue ada pada penciptaan solusi digital yang nggak cuma fungsional, tapi juga ngasih pengalaman visual yang elegan.\n\nSebagai seorang jack of all trades, gue seneng mengeksplorasi banyak hal mulai dari ngoding, desain grafis, video editing, sampai main instrumen musik. Belakangan ini, gue juga lagi aktif lari buat ngelatih konsistensi, karena ngebangun endurance di jalanan ternyata nggak jauh beda sama ngerjain project kompleks.",
   );
 
   const paragraphs = aboutText.split("\n\n");
@@ -45,19 +51,41 @@ export default function About() {
       .catch((err) => console.error("Gagal ambil teks About:", err));
   }, []);
 
-  /* 2. Isolated Slider Timer with Hover Pause */
+  /* 2. Isolated Slider Timer with Hover, Focus & Reduced-Motion Pause */
   useEffect(() => {
-    if (images.length <= 1 || isHovered) return;
+    if (
+      images.length <= 1 ||
+      isHovered ||
+      isFocused ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
 
     const interval = setInterval(() => {
       setImgIndex((prev) => (prev + 1) % images.length);
     }, 4500);
 
     return () => clearInterval(interval);
-  }, [images.length, isHovered]);
+  }, [images.length, isHovered, isFocused]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || images.length <= 1) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    touchStartX.current = null;
+    if (Math.abs(diff) > 40) {
+      setImgIndex((prev) =>
+        diff > 0 ? (prev + 1) % images.length : (prev - 1 + images.length) % images.length,
+      );
+    }
+  };
 
   return (
-    <section id="about" className="section-container" ref={sectionRef} style={{ minHeight: "60vh" }}>
+    <section id="about" className="section-container" ref={sectionRef} style={{ minHeight: "60dvh" }}>
       <div className="section-header">
         <h2 className="section-title kinetic-reveal">About Me.</h2>
       </div>
@@ -75,6 +103,10 @@ export default function About() {
           className="about-visual-wrapper"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           {images.map((src, idx) => (
             <img
@@ -82,19 +114,17 @@ export default function About() {
               src={src}
               alt={`Rayhan Fahrezi Setiawan Profile ${idx + 1}`}
               className={`about-img ${idx === imgIndex ? "active" : ""}`}
-              style={{
-                opacity: idx === imgIndex ? 1 : 0,
-                zIndex: idx === imgIndex ? 2 : 1,
-              }}
             />
           ))}
 
           {images.length > 1 && (
-            <div className="about-slider-dots">
+            <div className="about-slider-dots" role="tablist" aria-label="Profile photos">
               {images.map((_, idx) => (
                 <button
                   key={idx}
                   type="button"
+                  role="tab"
+                  aria-selected={idx === imgIndex}
                   onClick={() => setImgIndex(idx)}
                   className={`slider-dot ${idx === imgIndex ? "active" : ""}`}
                   aria-label={`View photo ${idx + 1}`}

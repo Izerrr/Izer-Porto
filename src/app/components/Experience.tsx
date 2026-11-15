@@ -19,6 +19,7 @@ export default function Experience() {
   const [loading, setLoading] = useState(true);
   const sectionRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const progressLineRef = useRef<HTMLDivElement>(null);
 
   // 1. FETCH DATA PARALLEL (Careers & Education)
   useEffect(() => {
@@ -41,30 +42,57 @@ export default function Experience() {
     });
   }, []);
 
-  // 2. ANIMASI SWITCH TOGGLE & SCROLL REVEAL (GSAP STAGGER)
+  // 2. ANIMASI SWITCH TOGGLE, SCROLL-DRIVEN TIMELINE RAIL & STAGGER REVEAL
   useEffect(() => {
     if (loading || !listRef.current) return;
+
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const ctx = gsap.context(() => {
       const items = listRef.current?.querySelectorAll(".experience-item");
 
       if (items && items.length > 0) {
-        gsap.fromTo(
-          items,
-          { opacity: 0, y: 25 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.5,
-            stagger: 0.08,
-            ease: "power2.out",
-            onComplete: () => {
-              ScrollTrigger.refresh();
+        if (prefersReduced) {
+          gsap.set(items, { opacity: 1, y: 0 });
+        } else {
+          gsap.fromTo(
+            items,
+            { opacity: 0, y: 25 },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.5,
+              stagger: 0.08,
+              ease: "power2.out",
+              onComplete: () => {
+                ScrollTrigger.refresh();
+              },
             },
-          },
-        );
+          );
+        }
       } else {
         ScrollTrigger.refresh();
+      }
+
+      if (progressLineRef.current && items && items.length > 0) {
+        if (prefersReduced) {
+          gsap.set(progressLineRef.current, { scaleY: 1 });
+        } else {
+          gsap.fromTo(
+            progressLineRef.current,
+            { scaleY: 0 },
+            {
+              scaleY: 1,
+              ease: "none",
+              scrollTrigger: {
+                trigger: listRef.current,
+                start: "top 78%",
+                end: "bottom 75%",
+                scrub: 0.4,
+              },
+            },
+          );
+        }
       }
     }, listRef);
 
@@ -74,34 +102,21 @@ export default function Experience() {
   const currentList = activeTab === "experience" ? experienceData : educationData;
 
   return (
-    <section id="experience" className="section-container" ref={sectionRef} style={{ minHeight: "70vh" }}>
+    <section id="experience" className="section-container" ref={sectionRef} style={{ minHeight: "70dvh" }}>
       {/* HEADER SECTION */}
       <div className="section-header" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <h2 className="section-title kinetic-reveal">Experience.</h2>
 
         {/* --- TOGGLE MENU --- */}
-        <div role="tablist" aria-label="Experience Categories" style={{ display: "flex", gap: "2rem", marginTop: "0.5rem" }}>
+        <div role="tablist" aria-label="Experience Categories" className="exp-tabs">
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === "experience"}
             onClick={() => setActiveTab("experience")}
-            className="magnetic-target"
-            style={{
-              background: "none",
-              border: "none",
-              paddingBottom: "0.5rem",
-              cursor: "pointer",
-              fontSize: "1rem",
-              fontWeight: "600",
-              color: "inherit",
-              opacity: activeTab === "experience" ? 1 : 0.4,
-              borderBottom: "2px solid",
-              borderColor: activeTab === "experience" ? "currentColor" : "transparent",
-              transition: "opacity 0.3s ease, border-color 0.3s ease",
-            }}
+            className={`exp-tab-btn magnetic-target ${activeTab === "experience" ? "active" : ""}`}
           >
-            Careers & Ventures
+            Careers &amp; Ventures
           </button>
 
           <button
@@ -109,20 +124,7 @@ export default function Experience() {
             role="tab"
             aria-selected={activeTab === "education"}
             onClick={() => setActiveTab("education")}
-            className="magnetic-target"
-            style={{
-              background: "none",
-              border: "none",
-              paddingBottom: "0.5rem",
-              cursor: "pointer",
-              fontSize: "1rem",
-              fontWeight: "600",
-              color: "inherit",
-              opacity: activeTab === "education" ? 1 : 0.4,
-              borderBottom: "2px solid",
-              borderColor: activeTab === "education" ? "currentColor" : "transparent",
-              transition: "opacity 0.3s ease, border-color 0.3s ease",
-            }}
+            className={`exp-tab-btn magnetic-target ${activeTab === "education" ? "active" : ""}`}
           >
             Education
           </button>
@@ -131,27 +133,34 @@ export default function Experience() {
 
       {/* --- TIMELINE LIST --- */}
       <div className="experience-list" ref={listRef} style={{ marginTop: "3.5rem" }}>
+        {!loading && currentList.length > 0 && (
+          <div className="exp-timeline-track" aria-hidden="true">
+            <div ref={progressLineRef} className="exp-timeline-progress" />
+          </div>
+        )}
+
         {loading ? (
-          <p style={{ textAlign: "center", opacity: 0.5, padding: "2rem 0" }}>Loading database...</p>
+          <p className="exp-status-msg">Loading database...</p>
         ) : currentList.length > 0 ? (
           currentList.map((item, idx) => (
             <div key={item.id || idx} className="exp-row experience-item">
+              <span className="exp-node" aria-hidden="true" />
               {/* SISI KIRI: Durasi & Posisi */}
               <div className="exp-left" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.85rem", opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.5px" }}>{item.date_range}</span>
+                <span className="exp-date">{item.date_range}</span>
                 <h3 style={{ fontSize: "clamp(1.35rem, 3.5vw, 2.1rem)", fontWeight: "700", margin: 0, letterSpacing: "-0.5px" }}>{item.title}</h3>
               </div>
 
               {/* SISI KANAN: Deskripsi */}
               {item.description && (
-                <div className="exp-right" style={{ fontSize: "1rem", lineHeight: "1.7", opacity: 0.85 }}>
+                <div className="exp-right" style={{ fontSize: "1rem", lineHeight: "1.7" }}>
                   <p className="exp-description" style={{ margin: 0 }}>{item.description}</p>
                 </div>
               )}
             </div>
           ))
         ) : (
-          <p style={{ textAlign: "center", opacity: 0.4, padding: "4rem 0" }}>Belum ada data di sub-kategori ini.</p>
+          <p className="exp-status-msg">Belum ada data di sub-kategori ini.</p>
         )}
       </div>
     </section>

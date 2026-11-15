@@ -14,72 +14,96 @@ import Footer from "./components/Footer";
 
 export default function Home() {
   useEffect(() => {
-    document.body.classList.add("loading");
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const hasSeenPreloader =
+      typeof window !== "undefined" && sessionStorage.getItem("izer_preloader_seen") === "1";
+    const skipPreloader = prefersReducedMotion || hasSeenPreloader;
+
+    if (!skipPreloader) {
+      document.body.classList.add("loading");
+    }
+
     let progressInterval: ReturnType<typeof setInterval> | null = null;
 
     const ctx = gsap.context(() => {
-      // PRELOADER LOGIC
-      let progress = 0;
-      const pBar = document.querySelector(".preloader-progress") as HTMLElement;
-      const pPct = document.querySelector(".preloader-percent") as HTMLElement;
+      // PRELOADER LOGIC (skip redundant wait on revisit or reduced motion)
+      if (skipPreloader) {
+        gsap.set(".preloader", { y: "-100%", autoAlpha: 0, display: "none" });
+        document.body.classList.remove("loading");
+      } else {
+        let progress = 0;
+        const pBar = document.querySelector(".preloader-progress") as HTMLElement;
+        const pPct = document.querySelector(".preloader-percent") as HTMLElement;
 
-      // Animasiin teks IZER muncul dari bawah (Reveal)
-      gsap.to(".preloader-text", {
-        y: "0%",
-        duration: 1.2,
-        ease: "power4.out",
-        delay: 0.2,
-      });
+        gsap.to(".preloader-text", {
+          y: "0%",
+          duration: 1.2,
+          ease: "power4.out",
+          delay: 0.2,
+        });
 
-      progressInterval = setInterval(() => {
-        progress += Math.random() * 8;
-        if (progress >= 100) {
-          progress = 100;
-          if (progressInterval) clearInterval(progressInterval);
+        progressInterval = setInterval(() => {
+          progress += Math.random() * 8;
+          if (progress >= 100) {
+            progress = 100;
+            if (progressInterval) clearInterval(progressInterval);
+            try {
+              sessionStorage.setItem("izer_preloader_seen", "1");
+            } catch {
+              // Ignore storage errors in restricted contexts
+            }
 
-          gsap.to(".preloader", {
-            y: "-100%",
-            duration: 1.2,
-            delay: 0.4,
-            ease: "power4.inOut",
-            onComplete: () => {
-              document.body.classList.remove("loading");
-              ScrollTrigger.refresh();
-            },
-          });
-        }
-        if (pBar) pBar.style.width = progress + "%";
-        if (pPct) pPct.textContent = Math.round(progress) + "%";
-      }, 45);
+            gsap.to(".preloader", {
+              y: "-100%",
+              duration: 1.2,
+              delay: 0.4,
+              ease: "power4.inOut",
+              onComplete: () => {
+                document.body.classList.remove("loading");
+                ScrollTrigger.refresh();
+              },
+            });
+          }
+          if (pBar) pBar.style.width = progress + "%";
+          if (pPct) pPct.textContent = Math.round(progress) + "%";
+        }, 45);
+      }
 
-      // KINETIC REVEAL (Idempotent untuk semua judul seksi)
+      // KINETIC REVEAL (Accessible + reduced-motion safe)
       const kineticTitles = document.querySelectorAll(".kinetic-reveal");
       kineticTitles.forEach((title) => {
         if (!title.getAttribute("data-kinetic")) {
           const text = title.textContent || "";
+          title.setAttribute("aria-label", text);
           title.innerHTML = "";
           [...text].forEach((char) => {
             const span = document.createElement("span");
             span.textContent = char === " " ? "\u00A0" : char;
             span.style.display = "inline-block";
+            span.setAttribute("aria-hidden", "true");
             title.appendChild(span);
           });
           title.setAttribute("data-kinetic", "true");
         }
 
-        gsap.fromTo(
-          title.querySelectorAll("span"),
-          { y: 30, opacity: 0, filter: "blur(5px)" },
-          {
-            scrollTrigger: { trigger: title, start: "top 85%" },
-            y: 0,
-            opacity: 1,
-            filter: "blur(0px)",
-            stagger: 0.02,
-            duration: 0.8,
-            ease: "power3.out",
-          },
-        );
+        const charSpans = title.querySelectorAll("span");
+        if (prefersReducedMotion) {
+          gsap.set(charSpans, { y: 0, opacity: 1, filter: "none" });
+        } else {
+          gsap.fromTo(
+            charSpans,
+            { y: 30, opacity: 0, filter: "blur(5px)" },
+            {
+              scrollTrigger: { trigger: title, start: "top 85%" },
+              y: 0,
+              opacity: 1,
+              filter: "blur(0px)",
+              stagger: 0.02,
+              duration: 0.8,
+              ease: "power3.out",
+            },
+          );
+        }
       });
     });
 

@@ -24,11 +24,13 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
 
     document.body.classList.remove("native-cursor");
 
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
     /* 1. Lenis Smooth Scroll Engine */
     const lenis = new Lenis({
-      duration: 1.15,
+      duration: prefersReducedMotion ? 0 : 1.15,
       easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothWheel: true,
+      smoothWheel: !prefersReducedMotion,
       touchMultiplier: 1.5,
     });
     lenis.on("scroll", ScrollTrigger.update);
@@ -39,7 +41,8 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
     gsap.ticker.add(updateLenis);
     gsap.ticker.lagSmoothing(500, 33);
 
-    const handleScroll = (e: Event) => lenis.scrollTo((e as CustomEvent).detail, { duration: 1.4 });
+    const handleScroll = (e: Event) =>
+      lenis.scrollTo((e as CustomEvent).detail, { duration: prefersReducedMotion ? 0 : 1.4 });
     window.addEventListener("lenis-scroll", handleScroll);
 
     /* 2. Accurate Pointer Detection */
@@ -56,20 +59,53 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
       targetCursor.style.display = "";
       gsap.set(targetCursor, { opacity: 0, xPercent: -50, yPercent: -50, force3D: true });
 
-      // Snappy duration (0.08s) eliminates the drag lag while preserving fluid movement
       xTo = gsap.quickTo(targetCursor, "x", { duration: 0.08, ease: "power2.out" });
       yTo = gsap.quickTo(targetCursor, "y", { duration: 0.08, ease: "power2.out" });
     }
 
     let isCursorVisible = false;
+    let activeTiltCard: HTMLElement | null = null;
+
+    const resetTilt = (card: HTMLElement | null) => {
+      if (!card) return;
+      card.style.setProperty("--tilt-x", "0deg");
+      card.style.setProperty("--tilt-y", "0deg");
+    };
 
     const moveCursor = (e: MouseEvent) => {
-      const card = (e.target as HTMLElement | null)?.closest(".glass-card, .skill-box, .ios-segmented-control") as HTMLElement | null;
+      const targetEl = e.target as HTMLElement | null;
+      const card = targetEl?.closest(".glass-card, .skill-box, .ios-segmented-control") as HTMLElement | null;
       if (card) {
         const rect = card.getBoundingClientRect();
-        card.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
-        card.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
+        const localX = e.clientX - rect.left;
+        const localY = e.clientY - rect.top;
+        card.style.setProperty("--mouse-x", `${localX}px`);
+        card.style.setProperty("--mouse-y", `${localY}px`);
+
+        if (
+          !prefersReducedMotion &&
+          !checkIsTouchOnly() &&
+          card.classList.contains("skill-box") &&
+          rect.width > 0 &&
+          rect.height > 0
+        ) {
+          if (activeTiltCard && activeTiltCard !== card) {
+            resetTilt(activeTiltCard);
+          }
+          activeTiltCard = card;
+          const relX = (localX / rect.width - 0.5) * 2;
+          const relY = (localY / rect.height - 0.5) * 2;
+          card.style.setProperty("--tilt-y", `${(relX * 2.5).toFixed(2)}deg`);
+          card.style.setProperty("--tilt-x", `${(-relY * 2.5).toFixed(2)}deg`);
+        } else if (activeTiltCard && activeTiltCard !== card) {
+          resetTilt(activeTiltCard);
+          activeTiltCard = null;
+        }
+      } else if (activeTiltCard) {
+        resetTilt(activeTiltCard);
+        activeTiltCard = null;
       }
+
       if (!targetCursor || checkIsTouchOnly()) {
         if (targetCursor) gsap.set(targetCursor, { opacity: 0 });
         return;
@@ -87,6 +123,10 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
     };
 
     const hideCursor = () => {
+      if (activeTiltCard) {
+        resetTilt(activeTiltCard);
+        activeTiltCard = null;
+      }
       if (targetCursor) {
         gsap.to(targetCursor, { opacity: 0, duration: 0.15, overwrite: "auto" });
         isCursorVisible = false;
@@ -108,16 +148,23 @@ export default function ClientWrapper({ children }: { children: React.ReactNode 
         if (target.classList.contains("work-link-wrapper")) {
           gsap.to(targetCursor, { scale: 2.2, opacity: 0.4, duration: 0.3, overwrite: "auto" });
         } else {
-          // Bouncy / elastic "mentul-mentul" feel with back.out(1.7)
           gsap.to(targetCursor, { scale: 3.5, opacity: 0.3, duration: 0.3, ease: "back.out(1.7)", overwrite: "auto" });
         }
       }
     };
 
     const handleOut = (e: MouseEvent) => {
+      const targetEl = e.target as HTMLElement | null;
+      const exitedCard = targetEl?.closest(".skill-box") as HTMLElement | null;
+      const related = e.relatedTarget as HTMLElement | null;
+      if (exitedCard && (!related || !exitedCard.contains(related))) {
+        resetTilt(exitedCard);
+        if (activeTiltCard === exitedCard) activeTiltCard = null;
+      }
+
       if (checkIsTouchOnly() || !targetCursor) return;
 
-      const target = (e.target as HTMLElement).closest("a, button, .magnetic-target, [role='button'], .slider-dot, input, textarea");
+      const target = targetEl?.closest("a, button, .magnetic-target, [role='button'], .slider-dot, input, textarea");
       if (target) {
         gsap.to(targetCursor, { scale: 1, opacity: 1, duration: 0.3, overwrite: "auto" });
       }

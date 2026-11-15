@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useSyncExternalStore } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -11,6 +11,9 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLight, setIsLight] = useState(false);
   const [activeSection, setActiveSection] = useState("hero");
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const firstMobileLinkRef = useRef<HTMLAnchorElement>(null);
+
   const isMuted = useSyncExternalStore(
     (callback) => {
       window.addEventListener("izer-sound-toggle", callback);
@@ -42,25 +45,29 @@ export default function Navbar() {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
-  // 2. Lock body scroll and handle ESC when mobile menu is open
+  // 2. Lock body scroll, manage focus, and handle ESC when mobile menu is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
+      const focusTimer = setTimeout(() => {
+        firstMobileLinkRef.current?.focus();
+      }, 60);
+      const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          setIsOpen(false);
+          hamburgerRef.current?.focus();
+        }
+      };
+      window.addEventListener("keydown", handleEscape);
+      return () => {
+        clearTimeout(focusTimer);
+        document.body.style.overflow = "";
+        window.removeEventListener("keydown", handleEscape);
+      };
     }
 
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        setIsOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", handleEscape);
-    };
+    document.body.style.overflow = "";
+    return undefined;
   }, [isOpen]);
 
   // 3. ScrollTrigger section tracking & Magnetic targets with clean listener removal
@@ -85,8 +92,10 @@ export default function Navbar() {
         ScrollTrigger.refresh();
       }
 
+      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const mTargets = document.querySelectorAll(".magnetic-target");
       mTargets.forEach((el) => {
+        if (prefersReduced) return;
         const t = el as HTMLElement;
         const move = (e: MouseEvent) => {
           if (window.matchMedia("(hover: none), (pointer: coarse)").matches) return;
@@ -176,12 +185,13 @@ export default function Navbar() {
 
         <div className="nav-controls">
           <button
+            type="button"
             onClick={handleToggleSound}
             className={`sound-btn magnetic-target ${isMuted ? "muted" : ""}`}
             aria-label={isMuted ? "Unmute sound effects" : "Mute sound effects"}
             title={isMuted ? "Sound: Off (Click to Enable)" : "Sound: On (Click to Mute)"}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               {isMuted ? (
                 <>
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
@@ -196,8 +206,8 @@ export default function Navbar() {
               )}
             </svg>
           </button>
-          <button onClick={toggleTheme} className="theme-btn magnetic-target" aria-label="Toggle theme">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <button type="button" onClick={toggleTheme} className="theme-btn magnetic-target" aria-label="Toggle theme">
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               {isLight ? (
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
               ) : (
@@ -216,22 +226,40 @@ export default function Navbar() {
             </svg>
           </button>
 
-          <div className={`hamburger magnetic-target ${isOpen ? "active" : ""}`} onClick={() => setIsOpen(!isOpen)} role="button" aria-label="Toggle menu">
-            <span></span>
-            <span></span>
-          </div>
+          <button
+            ref={hamburgerRef}
+            type="button"
+            className={`hamburger magnetic-target ${isOpen ? "active" : ""}`}
+            onClick={() => setIsOpen(!isOpen)}
+            aria-expanded={isOpen}
+            aria-controls="mobile-menu-drawer"
+            aria-label={isOpen ? "Close menu" : "Toggle menu"}
+          >
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+          </button>
         </div>
       </nav>
 
       {/* MOBILE MENU */}
-      <div className={`mobile-menu-overlay ${isOpen ? "active" : ""}`}>
+      <div
+        id="mobile-menu-drawer"
+        className={`mobile-menu-overlay ${isOpen ? "active" : ""}`}
+        aria-hidden={!isOpen}
+        inert={!isOpen}
+      >
         <div className="mobile-menu-inner">
           <ul className="mobile-nav-links">
-            {navItems.map((item) => {
+            {navItems.map((item, idx) => {
               const id = item.toLowerCase();
               return (
                 <li key={item}>
-                  <a href={`#${id}`} onClick={(e) => handleNavClick(e, id)} className={`mobile-nav-item ${pathname === "/" && activeSection === id ? "active" : ""}`}>
+                  <a
+                    ref={idx === 0 ? firstMobileLinkRef : undefined}
+                    href={`#${id}`}
+                    onClick={(e) => handleNavClick(e, id)}
+                    className={`mobile-nav-item ${pathname === "/" && activeSection === id ? "active" : ""}`}
+                  >
                     {item}
                   </a>
                 </li>

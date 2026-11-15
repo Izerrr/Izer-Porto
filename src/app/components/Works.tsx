@@ -1,5 +1,13 @@
 "use client";
-import React, { useEffect, useState, useRef, useMemo, useCallback, useSyncExternalStore } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useRef,
+  useMemo,
+  useCallback,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -28,7 +36,17 @@ const ensureHttps = (url: string | null | undefined): string => {
 /* Helper: Check embeddable live website */
 const isLiveWebsite = (url: string | null | undefined): boolean => {
   if (!url || url.trim() === "") return false;
-  const socialDomains = ["github.com", "behance.net", "instagram.com", "linkedin.com", "twitter.com", "x.com", "tiktok.com", "youtube.com", "youtu.be"];
+  const socialDomains = [
+    "github.com",
+    "behance.net",
+    "instagram.com",
+    "linkedin.com",
+    "twitter.com",
+    "x.com",
+    "tiktok.com",
+    "youtube.com",
+    "youtu.be",
+  ];
   return !socialDomains.some((domain) => url.toLowerCase().includes(domain));
 };
 
@@ -41,8 +59,12 @@ export const getProjectTechTags = (item: Project): string[] => {
   if (text.includes("type") || text.includes("ts")) tags.push("TypeScript");
   if (text.includes("php") || text.includes("laravel")) tags.push("PHP Native");
   if (text.includes("gsap") || text.includes("scrolltrigger") || text.includes("motion")) tags.push("GSAP");
-  if (text.includes("video") || text.includes("premiere") || text.includes("after effects") || text.includes("reel")) tags.push("Video Editing");
-  if (text.includes("design") || text.includes("figma") || text.includes("brand") || text.includes("ui/ux")) tags.push("UI/UX Design");
+  if (text.includes("video") || text.includes("premiere") || text.includes("after effects") || text.includes("reel")) {
+    tags.push("Video Editing");
+  }
+  if (text.includes("design") || text.includes("figma") || text.includes("brand") || text.includes("ui/ux")) {
+    tags.push("UI/UX Design");
+  }
   if (text.includes("web") || text.includes("app")) tags.push("Web Architecture");
 
   if (tags.length === 0) {
@@ -229,7 +251,7 @@ export default function Works() {
   const isClient = useSyncExternalStore(
     () => () => {},
     () => true,
-    () => false
+    () => false,
   );
   const [isDragging, setIsDragging] = useState(false);
   const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
@@ -238,6 +260,11 @@ export default function Works() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
   const modalIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const tablistRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const modalCloseBtnRef = useRef<HTMLButtonElement>(null);
+  const lastTriggerRef = useRef<HTMLElement | null>(null);
+
   const dragState = useRef({
     isDown: false,
     startX: 0,
@@ -252,7 +279,6 @@ export default function Works() {
 
   /* 1. Fetch data, Auto-Upgrade HTTPS, and route un-cached website covers to Local WebP Optimizer */
   useEffect(() => {
-
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/works.php`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
@@ -352,6 +378,29 @@ export default function Works() {
     }
     setMobileActiveIndex(0);
   };
+
+  /* Sync physical sliding pill geometry inside iOS Segmented Control */
+  useLayoutEffect(() => {
+    const container = tablistRef.current;
+    const activeBtn = tabRefs.current[selectedCategory];
+    if (!container || !activeBtn) return;
+
+    const updatePill = () => {
+      container.style.setProperty("--pill-left", `${activeBtn.offsetLeft}px`);
+      container.style.setProperty("--pill-width", `${activeBtn.offsetWidth}px`);
+      container.style.setProperty("--pill-height", `${activeBtn.offsetHeight}px`);
+      container.style.setProperty("--pill-top", `${activeBtn.offsetTop}px`);
+      container.dataset.pillReady = "true";
+    };
+
+    updatePill();
+
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(updatePill);
+    ro.observe(container);
+    ro.observe(activeBtn);
+    return () => ro.disconnect();
+  }, [selectedCategory, categories]);
 
   /* Track mobile horizontal scroll counter */
   useEffect(() => {
@@ -471,6 +520,7 @@ export default function Works() {
 
   const handleCardSelect = (project: Project) => {
     if (dragState.current.movedDistance > 6 || touchState.current.moved) return;
+    lastTriggerRef.current = document.activeElement as HTMLElement | null;
     sound.playModalOpen();
     setMediaLoading(true);
     setModalViewMode("live");
@@ -487,9 +537,12 @@ export default function Works() {
       }
     }
     setActiveProject(null);
+    requestAnimationFrame(() => {
+      lastTriggerRef.current?.focus();
+    });
   }, []);
 
-  /* 4. Lock body scroll & Keyboard handler when modal is open */
+  /* 4. Lock body scroll, manage focus & Keyboard handler when modal is open */
   useEffect(() => {
     document.body.style.overflow = activeProject ? "hidden" : "";
 
@@ -504,11 +557,16 @@ export default function Works() {
       }
     };
 
+    let focusRaf: number | null = null;
     if (activeProject) {
       window.addEventListener("keydown", handleKeyDown);
+      focusRaf = requestAnimationFrame(() => {
+        modalCloseBtnRef.current?.focus();
+      });
     }
 
     return () => {
+      if (focusRaf !== null) cancelAnimationFrame(focusRaf);
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -532,8 +590,8 @@ export default function Works() {
         style={{
           opacity: loading ? 0.3 : 1,
           transition: "opacity 0.4s",
-          paddingTop: "4vh",
-          paddingBottom: "4vh",
+          paddingTop: "4dvh",
+          paddingBottom: "4dvh",
         }}
       >
         <div
@@ -553,15 +611,19 @@ export default function Works() {
             </h2>
           </div>
 
-          {/* iOS-Style Segmented Control */}
+          {/* iOS-Style Segmented Control with physical sliding pill */}
           {categories.length > 1 && (
-            <div className="ios-segmented-control" role="tablist" aria-label="Project categories">
+            <div ref={tablistRef} className="ios-segmented-control" role="tablist" aria-label="Project categories">
+              <div className="ios-segmented-pill" aria-hidden="true" />
               {categories.map((cat) => {
                 const count = cat === "All" ? works.length : works.filter((w) => w.category === cat).length;
                 const isActive = selectedCategory === cat;
                 return (
                   <button
                     key={cat}
+                    ref={(el) => {
+                      tabRefs.current[cat] = el;
+                    }}
                     type="button"
                     role="tab"
                     aria-selected={isActive}
@@ -592,15 +654,19 @@ export default function Works() {
           onTouchEnd={handleTouchEnd}
           style={{ display: "flex", flexWrap: "nowrap" }}
         >
-          {loading ? <p style={{ color: "var(--text-dim)", padding: "5vw" }}>Loading works...</p> : filteredWorks.map((item) => <WorkCardItem key={item.id} item={item} onSelect={handleCardSelect} />)}
+          {loading ? (
+            <p style={{ color: "var(--text-dim)", padding: "5vw" }}>Loading works...</p>
+          ) : (
+            filteredWorks.map((item) => <WorkCardItem key={item.id} item={item} onSelect={handleCardSelect} />)
+          )}
         </div>
 
         {/* Mobile Swipe Counter */}
         {!loading && filteredWorks.length > 1 && (
           <div className="works-mobile-counter">
             <span style={{ fontWeight: "700" }}>{String(mobileActiveIndex + 1).padStart(2, "0")}</span>
-            <span style={{ opacity: 0.3 }}>/</span>
-            <span style={{ opacity: 0.5 }}>{String(filteredWorks.length).padStart(2, "0")}</span>
+            <span className="works-counter-dim">/</span>
+            <span className="works-counter-dim">{String(filteredWorks.length).padStart(2, "0")}</span>
           </div>
         )}
       </section>
@@ -618,7 +684,7 @@ export default function Works() {
             {activeProject && (
               <div className="works-modal-dialog" onClick={(e) => e.stopPropagation()}>
                 {/* Mobile drag handle */}
-                <div className="works-modal-drag-indicator" />
+                <div className="works-modal-drag-indicator" aria-hidden="true" />
 
                 {/* Header */}
                 <div className="works-modal-header">
@@ -630,7 +696,8 @@ export default function Works() {
                   </div>
 
                   <div className="works-modal-controls">
-                    {(isLiveWebsite(activeProject.project_url) || (activeProject.project_url && activeProject.project_url.includes("/embed"))) && (
+                    {(isLiveWebsite(activeProject.project_url) ||
+                      (activeProject.project_url && activeProject.project_url.includes("/embed"))) && (
                       <div className="works-modal-view-mode">
                         <button
                           type="button"
@@ -641,7 +708,22 @@ export default function Works() {
                           }}
                           className={`works-modal-mode-btn ${modalViewMode === "live" ? "active" : ""}`}
                         >
-                          🌐 Live
+                          <svg
+                            aria-hidden="true"
+                            width="13"
+                            height="13"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M2 12h20" />
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                          </svg>
+                          <span>Live</span>
                         </button>
                         <button
                           type="button"
@@ -652,7 +734,21 @@ export default function Works() {
                           }}
                           className={`works-modal-mode-btn ${modalViewMode === "snapshot" ? "active" : ""}`}
                         >
-                          📸 Snapshot
+                          <svg
+                            aria-hidden="true"
+                            width="13"
+                            height="13"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                            <circle cx="12" cy="13" r="3" />
+                          </svg>
+                          <span>Snapshot</span>
                         </button>
                       </div>
                     )}
@@ -689,6 +785,7 @@ export default function Works() {
                       </>
                     )}
                     <button
+                      ref={modalCloseBtnRef}
                       type="button"
                       onClick={closeModal}
                       aria-label="Close preview modal"
@@ -732,7 +829,9 @@ export default function Works() {
                         }}
                       />
                     )
-                  ) : (isLiveWebsite(activeProject.project_url) || (activeProject.project_url && activeProject.project_url.includes("/embed"))) && modalViewMode === "live" ? (
+                  ) : (isLiveWebsite(activeProject.project_url) ||
+                      (activeProject.project_url && activeProject.project_url.includes("/embed"))) &&
+                    modalViewMode === "live" ? (
                     <iframe
                       key={`${activeProject.id}-live`}
                       ref={modalIframeRef}
@@ -765,7 +864,8 @@ export default function Works() {
                 {/* Body: Description & Tech Stack Pills */}
                 <div className="works-modal-body">
                   <p className="works-modal-description">
-                    {activeProject.description || "Solusi digital berkinerja tinggi yang dirancang dengan perpaduan keindahan visual, interaktivitas modern, dan arsitektur kode yang efisien."}
+                    {activeProject.description ||
+                      "Solusi digital berkinerja tinggi yang dirancang dengan perpaduan keindahan visual, interaktivitas modern, dan arsitektur kode yang efisien."}
                   </p>
                   <div className="works-modal-tags">
                     {getProjectTechTags(activeProject).map((tag, idx) => (
@@ -787,7 +887,7 @@ export default function Works() {
                       className="works-modal-cta magnetic-target"
                     >
                       <span>Buka Link Asli</span>
-                      <span>↗</span>
+                      <span aria-hidden="true">↗</span>
                     </a>
                   )}
                 </div>
