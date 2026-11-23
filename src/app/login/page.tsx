@@ -8,11 +8,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState(() => (typeof window !== "undefined" && window.location.search.includes("expired=1") ? "Sesi login Anda telah berakhir. Silakan login kembali." : ""));
   const router = useRouter();
 
-  // Redirect to /admin if already logged in
+  // Redirect to /admin if already logged in (unless redirected here due to expired/invalid token)
   useEffect(() => {
+    if (typeof window !== "undefined" && window.location.search.includes("expired=1")) {
+      return;
+    }
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth_check.php`, { credentials: "include" })
       .then((res) => {
         if (res.ok) router.replace("/admin");
@@ -142,9 +145,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "1.2rem", textAlign: "left" }}>
           <div>
-            <label style={{ display: "block", fontSize: "0.78rem", fontWeight: "600", color: "var(--text-dim)", marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Username
-            </label>
+            <label style={{ display: "block", fontSize: "0.78rem", fontWeight: "600", color: "var(--text-dim)", marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Username</label>
             <input
               type="text"
               placeholder="Enter username"
@@ -167,9 +168,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label style={{ display: "block", fontSize: "0.78rem", fontWeight: "600", color: "var(--text-dim)", marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Password
-            </label>
+            <label style={{ display: "block", fontSize: "0.78rem", fontWeight: "600", color: "var(--text-dim)", marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Password</label>
             <div style={{ position: "relative", width: "100%" }}>
               <input
                 type={showPassword ? "text" : "password"}

@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# runtime-generated admin media previews (prevent git pull merge conflicts on VPS)
+/public/Resources/works_covers/cover-*.webp
+!/public/Resources/works_covers/cover-f9d6d571c1f2.webp
+/public/Resources/works_demos/demo-*.mp4

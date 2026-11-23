@@ -29,6 +29,17 @@ const CATEGORIES = [
 
 const DIALOG_LIGHT_DISMISS = { closedby: "any" } as Record<string, string>;
 
+function normalizeAdminUrl(raw: string | undefined | null): string {
+  const val = (raw ?? "").trim();
+  if (!val) return "";
+  if (val.startsWith("/") && !val.startsWith("//")) return val;
+  if (/^resources\//i.test(val)) return `/${val}`;
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(val) && !val.startsWith("//")) {
+    return `https://${val}`;
+  }
+  return val;
+}
+
 function CategoryIcon({ id }: { id: string }) {
   const svgProps = {
     "aria-hidden": true as const,
@@ -106,6 +117,8 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState<boolean>(false);
+  const [loadingVideoPreview, setLoadingVideoPreview] = useState<boolean>(false);
+  const [videoPreviewEngine, setVideoPreviewEngine] = useState<string | null>(null);
   const [iframeAllowed, setIframeAllowed] = useState<boolean | null>(null);
   const [reordering, setReordering] = useState(false);
   const [draggedId, setDraggedId] = useState<number | null>(null);
@@ -115,6 +128,8 @@ export default function AdminPage() {
 
   const deleteDialogRef = useRef<HTMLDialogElement>(null);
   const lightboxDialogRef = useRef<HTMLDialogElement>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const coverCapturePromiseRef = useRef<Promise<string | null> | null>(null);
 
   // Toast / Feedback state
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -153,6 +168,19 @@ export default function AdminPage() {
     }
   };
 
+  // Clear stale HttpOnly cookie on backend & redirect cleanly without middleware loop
+  const handleUnauthorized = useCallback(async () => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/logout.php`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // Ignore network errors during cleanup
+    }
+    router.replace("/login?expired=1");
+  }, [router]);
+
   // Verify Authentication on mount
   useEffect(() => {
     const verifyAuth = async () => {
@@ -161,20 +189,21 @@ export default function AdminPage() {
           credentials: "include",
         });
         if (res.status === 401 || res.status === 403) {
-          router.replace("/login");
+          await handleUnauthorized();
         }
       } catch {
         // Fallback or dev mode
       }
     };
-    verifyAuth();
-  }, [router]);
+    void verifyAuth();
+  }, [handleUnauthorized]);
 
   // Reset Form
   const resetForm = useCallback(
     (cat?: string | unknown) => {
       const targetCat = typeof cat === "string" ? cat : selectedCategory;
       setIframeAllowed(null);
+      setVideoPreviewEngine(null);
       setForm({
         id: null,
         title: "",
@@ -219,7 +248,7 @@ export default function AdminPage() {
   const fetchData = useCallback(async () => {
     const result = await fetchCategoryRecords();
     if (result.unauthorized) {
-      router.replace("/login");
+      await handleUnauthorized();
       return;
     }
     if (result.failed) {
@@ -229,7 +258,7 @@ export default function AdminPage() {
     if (result.items) {
       setDataList(result.items);
     }
-  }, [fetchCategoryRecords, router, showToast]);
+  }, [fetchCategoryRecords, handleUnauthorized, showToast]);
 
   // Sync data on category change via promise callback
   useEffect(() => {
@@ -237,7 +266,7 @@ export default function AdminPage() {
     fetchCategoryRecords().then((result) => {
       if (ignored) return;
       if (result.unauthorized) {
-        router.replace("/login");
+        void handleUnauthorized();
         return;
       }
       if (result.items) {
@@ -247,7 +276,7 @@ export default function AdminPage() {
     return () => {
       ignored = true;
     };
-  }, [fetchCategoryRecords, router]);
+  }, [fetchCategoryRecords, handleUnauthorized]);
 
   // Sync Native <dialog> elements cleanly
   useEffect(() => {
@@ -318,10 +347,14 @@ export default function AdminPage() {
     targetUrl?: string,
     forceRefresh = false,
   ): Promise<string | null> => {
-    const url = (targetUrl ?? form.project_url ?? "").trim();
+    const url = normalizeAdminUrl(targetUrl ?? form.project_url ?? "");
     if (!url) {
       showToast("Masukkan Project Link (URL) terlebih dahulu!", "error");
       return null;
+    }
+
+    if (coverCapturePromiseRef.current && !forceRefresh) {
+      return coverCapturePromiseRef.current;
     }
 
     const ytRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -333,48 +366,122 @@ export default function AdminPage() {
       setIframeAllowed(true);
       setForm((prev) => ({
         ...prev,
+        project_url: url,
         image_url: ytThumb,
       }));
       showToast("YouTube HD Cover applied!");
       return ytThumb;
     }
 
-    setLoadingPreview(true);
+    const task = (async (): Promise<string | null> => {
+      setLoadingPreview(true);
+      try {
+        const res = await fetch("/api/capture-cover", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ url, forceRefresh }),
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          showToast("Session expired. Please log in again.", "error");
+          await handleUnauthorized();
+          return null;
+        }
+
+        const json = await res.json();
+
+        if (typeof json.iframe_allowed === "boolean") {
+          setIframeAllowed(json.iframe_allowed);
+        }
+
+        if (res.ok && json.status === "success" && json.image_url) {
+          setForm((prev) => ({ ...prev, project_url: url, image_url: json.image_url }));
+          showToast(json.message || "Instant WebP Cover generated!");
+          return json.image_url as string;
+        }
+
+        const proxyUrl = `/api/capture-cover?url=${encodeURIComponent(url)}`;
+        setForm((prev) => ({
+          ...prev,
+          project_url: url,
+          image_url: proxyUrl,
+        }));
+        showToast("Cover linked via instant proxy!");
+        return proxyUrl;
+      } catch {
+        const proxyUrl = `/api/capture-cover?url=${encodeURIComponent(url)}`;
+        setForm((prev) => ({
+          ...prev,
+          project_url: url,
+          image_url: proxyUrl,
+        }));
+        return proxyUrl;
+      } finally {
+        setLoadingPreview(false);
+        coverCapturePromiseRef.current = null;
+      }
+    })();
+
+    coverCapturePromiseRef.current = task;
+    return task;
+  };
+
+  // Auto-Generate Video Preview (.mp4) using Antigravity-style live browser choreography or smooth scroll pan
+  const handleGenerateAutoVideo = async (
+    targetUrl?: string,
+    forceRefresh = true,
+  ): Promise<string | null> => {
+    const url = normalizeAdminUrl(targetUrl ?? form.project_url ?? "");
+    if (!url) {
+      showToast("Masukkan Project Link (URL) terlebih dahulu!", "error");
+      return null;
+    }
+
+    if (url.toLowerCase().includes("instagram.com")) {
+      showToast("Instagram menggunakan embed langsung, tidak memerlukan rekaman video lokal.", "error");
+      return null;
+    }
+
+    setLoadingVideoPreview(true);
     try {
-      const res = await fetch("/api/capture-cover", {
+      // Also auto-generate cover in parallel if empty
+      if (!form.image_url?.trim()) {
+        void handleGenerateInstantCover(url, false);
+      }
+
+      const res = await fetch("/api/capture-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ url, forceRefresh }),
       });
+
+      if (res.status === 401 || res.status === 403) {
+        showToast("Session expired. Please log in again.", "error");
+        await handleUnauthorized();
+        return null;
+      }
+
       const json = await res.json();
-
-      if (typeof json.iframe_allowed === "boolean") {
-        setIframeAllowed(json.iframe_allowed);
+      if (res.ok && json.status === "success" && json.video_url) {
+        setVideoPreviewEngine(json.engine || "playwright-live");
+        setForm((prev) => ({
+          ...prev,
+          project_url: url,
+          video_url: json.video_url as string,
+        }));
+        showToast(json.message || "Auto Video Preview (.mp4) berhasil dibuat!");
+        return json.video_url as string;
       }
 
-      if (res.ok && json.status === "success" && json.image_url) {
-        setForm((prev) => ({ ...prev, image_url: json.image_url }));
-        showToast(json.message || "Instant WebP Cover generated!");
-        return json.image_url as string;
-      }
-
-      const proxyUrl = `/api/capture-cover?url=${encodeURIComponent(url)}`;
-      setForm((prev) => ({
-        ...prev,
-        image_url: proxyUrl,
-      }));
-      showToast("Cover linked via instant proxy!");
-      return proxyUrl;
+      showToast(json.message || "Gagal membuat video preview dari URL ini.", "error");
+      return null;
     } catch {
-      const proxyUrl = `/api/capture-cover?url=${encodeURIComponent(url)}`;
-      setForm((prev) => ({
-        ...prev,
-        image_url: proxyUrl,
-      }));
-      return proxyUrl;
+      showToast("Gagal menghubungi generator video preview.", "error");
+      return null;
     } finally {
-      setLoadingPreview(false);
+      setLoadingVideoPreview(false);
     }
   };
 
@@ -382,21 +489,22 @@ export default function AdminPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const isCreatingNew = !form.id;
     const endpoint = form.id ? "edit_data.php" : "add_data.php";
 
     try {
-      let resolvedImageUrl = form.image_url || "";
-      const projectUrl = (form.project_url || "").trim();
+      const normalizedProjectUrl = normalizeAdminUrl(form.project_url);
+      let resolvedImageUrl = normalizeAdminUrl(form.image_url);
+      const normalizedVideoUrl = normalizeAdminUrl(form.video_url);
+
       const needsAutoCover =
         selectedCategory === "works" &&
-        Boolean(projectUrl) &&
-        !projectUrl.toLowerCase().includes("instagram.com") &&
-        (!resolvedImageUrl.trim() ||
-          resolvedImageUrl.includes("image.thum.io") ||
-          resolvedImageUrl.startsWith("/api/capture-cover"));
+        Boolean(normalizedProjectUrl) &&
+        !normalizedProjectUrl.toLowerCase().includes("instagram.com") &&
+        (!resolvedImageUrl.trim() || resolvedImageUrl.includes("image.thum.io"));
 
       if (needsAutoCover) {
-        const captured = await handleGenerateInstantCover(projectUrl, false);
+        const captured = await handleGenerateInstantCover(normalizedProjectUrl, false);
         if (captured) {
           resolvedImageUrl = captured;
         }
@@ -408,23 +516,72 @@ export default function AdminPage() {
         credentials: "include",
         body: JSON.stringify({
           ...form,
+          title: form.title.trim(),
+          description: (form.description || "").trim(),
+          date_range: (form.date_range || "").trim(),
           image_url: resolvedImageUrl,
+          project_url: normalizedProjectUrl,
+          video_url: normalizedVideoUrl,
           category: selectedCategory,
-          project_category: form.project_category || "Web Development",
+          project_category: (form.project_category || "Web Development").trim(),
         }),
       });
 
       if (res.status === 401 || res.status === 403) {
         showToast("Session expired. Please log in again.", "error");
-        setTimeout(() => router.replace("/login"), 1200);
+        await handleUnauthorized();
         return;
       }
 
       const result = await res.json();
       if (result.status === "success") {
-        showToast(form.id ? "Item updated successfully!" : "New item created!");
+        showToast(form.id ? "Item updated successfully!" : "New item created at #1 (Top)!");
         resetForm();
-        void fetchData();
+
+        const fresh = await fetchCategoryRecords();
+        if (fresh.unauthorized) {
+          await handleUnauthorized();
+          return;
+        }
+
+        if (fresh.items) {
+          let nextItems = fresh.items;
+
+          // Ensure newly created item is always placed at #1 (Top) even if backend order_index wasn't shifted yet
+          if (isCreatingNew && nextItems.length > 1 && selectedCategory !== "about") {
+            const targetNewId =
+              typeof result.id === "number" && result.id > 0
+                ? result.id
+                : Math.max(...nextItems.map((it) => Number(it.id) || 0));
+            const newIdx = nextItems.findIndex((it) => Number(it.id) === targetNewId);
+
+            if (newIdx > 0) {
+              const reordered = Array.from(nextItems);
+              const [newestItem] = reordered.splice(newIdx, 1);
+              reordered.unshift(newestItem);
+              nextItems = reordered;
+
+              const idOrder = reordered
+                .map((it) => Number(it.id))
+                .filter((id) => !Number.isNaN(id) && id > 0);
+
+              void fetch(`${process.env.NEXT_PUBLIC_API_URL}/reorder_data.php`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                  category: selectedCategory,
+                  order: idOrder,
+                }),
+              }).catch(() => {});
+            }
+          }
+
+          setDataList(nextItems);
+          if (isCreatingNew) {
+            listContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        }
       } else {
         showToast("Operation failed: " + (result.message || "Unknown error"), "error");
       }
@@ -446,7 +603,7 @@ export default function AdminPage() {
       });
       if (res.status === 401 || res.status === 403) {
         showToast("Session expired. Please log in again.", "error");
-        setTimeout(() => router.replace("/login"), 1200);
+        await handleUnauthorized();
         return;
       }
 
@@ -537,6 +694,12 @@ export default function AdminPage() {
           order: idOrder,
         }),
       });
+
+      if (res.status === 401 || res.status === 403) {
+        showToast("Session expired. Please log in again.", "error");
+        await handleUnauthorized();
+        return;
+      }
 
       const result = await res.json();
       if (result.status === "success") {
@@ -914,7 +1077,7 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {["works", "skills", "about_images", "tech_icons"].includes(selectedCategory) && (
+              {["works", "about_images", "tech_icons"].includes(selectedCategory) && (
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.35rem" }}>
                     <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-dim)" }}>
@@ -946,7 +1109,7 @@ export default function AdminPage() {
                       <button
                         type="button"
                         disabled={loadingPreview || !form.project_url}
-                        onClick={() => handleGenerateInstantCover(form.project_url, true)}
+                        onClick={() => void handleGenerateInstantCover(form.project_url, true)}
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -980,8 +1143,9 @@ export default function AdminPage() {
                         setForm({ ...form, project_url: e.target.value });
                       }}
                       onBlur={(e) => {
-                        if (e.target.value && !form.image_url) {
-                          void handleGenerateInstantCover(e.target.value, false);
+                        const normalized = normalizeAdminUrl(e.target.value);
+                        if (normalized !== e.target.value) {
+                          setForm((prev) => ({ ...prev, project_url: normalized }));
                         }
                       }}
                     />
@@ -1003,20 +1167,65 @@ export default function AdminPage() {
                   </div>
 
                   <div>
-                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: "600", color: "var(--text-dim)", marginBottom: "0.35rem" }}>
-                      VIDEO URL (.mp4 / Direct Stream)
-                    </label>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.35rem", gap: "0.5rem", flexWrap: "wrap" }}>
+                      <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-dim)" }}>
+                        VIDEO URL (.mp4 / Direct Stream)
+                      </label>
+                      <button
+                        type="button"
+                        disabled={loadingVideoPreview || !form.project_url}
+                        onClick={() => void handleGenerateAutoVideo(form.project_url, true)}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.35rem",
+                          background: "rgba(168, 85, 247, 0.16)",
+                          border: "1px solid rgba(168, 85, 247, 0.45)",
+                          color: "#c084fc",
+                          borderRadius: "8px",
+                          padding: "0.28rem 0.7rem",
+                          fontSize: "0.72rem",
+                          fontWeight: "600",
+                          cursor: loadingVideoPreview || !form.project_url ? "not-allowed" : "pointer",
+                          opacity: loadingVideoPreview || !form.project_url ? 0.5 : 1,
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <polygon points="23 7 16 12 23 17 23 7" />
+                          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                        </svg>
+                        <span>
+                          {loadingVideoPreview ? "Recording Auto Demo..." : "Auto-Generate Video Preview"}
+                        </span>
+                      </button>
+                    </div>
                     <input
                       type="text"
-                      placeholder="Optional video stream URL"
+                      placeholder="Optional .mp4 URL or click Auto-Generate Video Preview"
                       className="glass-card admin-input"
                       style={{ padding: "0.9rem", color: "inherit", width: "100%", boxSizing: "border-box", borderRadius: "10px", fontSize: "0.9rem" }}
                       value={form.video_url || ""}
                       onChange={(e) => setForm({ ...form, video_url: e.target.value })}
                     />
+                    {(form.video_url?.includes("/api/capture-video") ||
+                      form.video_url?.startsWith("/Resources/works_demos/")) && (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          marginTop: "0.35rem",
+                          fontSize: "0.68rem",
+                          fontWeight: "600",
+                          color: "#c084fc",
+                        }}
+                      >
+                        ✓ Auto MP4 Hover &amp; Modal Demo Ready
+                        {videoPreviewEngine ? ` (${videoPreviewEngine})` : ""}
+                      </span>
+                    )}
                   </div>
 
-                  {/* Media Live Preview Box */}
+                  {/* Media Live Preview Box (fixed minHeight prevents submit button layout shift) */}
                   <div
                     style={{
                       marginTop: "0.5rem",
@@ -1025,14 +1234,23 @@ export default function AdminPage() {
                       border: "1px solid var(--glass-border)",
                       padding: "1rem",
                       textAlign: "center",
+                      minHeight: "225px",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      boxSizing: "border-box",
                     }}
                   >
                     <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", display: "block", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                       Cover &amp; Media Preview
                     </span>
 
-                    {loadingPreview ? (
-                      <p style={{ fontSize: "0.82rem", color: "#38bdf8", margin: "2rem 0" }}>Generating optimized WebP cover from website...</p>
+                    {loadingPreview || loadingVideoPreview ? (
+                      <p style={{ fontSize: "0.82rem", color: loadingVideoPreview ? "#c084fc" : "#38bdf8", margin: "2rem 0" }}>
+                        {loadingVideoPreview
+                          ? "Recording automated browser demo & encoding MP4..."
+                          : "Generating optimized WebP cover from website..."}
+                      </p>
                     ) : form.video_url || form.image_url || form.project_url ? (
                       <div style={{ width: "100%", height: "180px", borderRadius: "8px", overflow: "hidden", background: "#050811" }}>
                         {form.video_url ? (
@@ -1044,13 +1262,23 @@ export default function AdminPage() {
                               title="YouTube video preview"
                             />
                           ) : (
-                            <video src={form.video_url} controls style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                            <video
+                              key={form.video_url}
+                              src={form.video_url}
+                              poster={form.image_url || undefined}
+                              controls
+                              autoPlay
+                              muted
+                              loop
+                              playsInline
+                              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                            />
                           )
                         ) : form.image_url ? (
                           <img src={form.image_url} alt="Generated Cover Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         ) : (
                           <img
-                            src={`/api/capture-cover?url=${encodeURIComponent(form.project_url || "")}`}
+                            src={`/api/capture-cover?url=${encodeURIComponent(normalizeAdminUrl(form.project_url))}`}
                             alt="Instant Website Preview"
                             style={{ width: "100%", height: "100%", objectFit: "cover" }}
                           />
@@ -1058,7 +1286,7 @@ export default function AdminPage() {
                       </div>
                     ) : (
                       <p style={{ fontSize: "0.78rem", color: "var(--text-dim)", margin: "1rem 0" }}>
-                        Paste a Project URL and click &quot;Generate Instant Cover&quot;
+                        Paste a Project URL and click &quot;Generate Instant Cover&quot; or &quot;Auto-Generate Video Preview&quot;
                       </p>
                     )}
                   </div>
@@ -1142,6 +1370,7 @@ export default function AdminPage() {
 
             {/* Reorderable Items Container */}
             <div
+              ref={listContainerRef}
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -1301,6 +1530,12 @@ export default function AdminPage() {
                           {item.category && item.category !== "works" && (
                             <span style={{ fontSize: "0.65rem", padding: "0.15rem 0.5rem", borderRadius: "8px", background: "rgba(255, 255, 255, 0.08)", color: "var(--text-dim)" }}>
                               {item.category}
+                            </span>
+                          )}
+
+                          {item.video_url && (
+                            <span style={{ fontSize: "0.64rem", padding: "0.12rem 0.45rem", borderRadius: "8px", background: "rgba(168, 85, 247, 0.16)", border: "1px solid rgba(168, 85, 247, 0.35)", color: "#c084fc", fontWeight: 600 }}>
+                              Video
                             </span>
                           )}
                         </div>
